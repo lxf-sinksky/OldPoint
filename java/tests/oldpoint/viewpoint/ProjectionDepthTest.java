@@ -12,6 +12,7 @@ import net.bytebuddy.jar.asm.ClassVisitor;
 import net.bytebuddy.jar.asm.ClassWriter;
 import net.bytebuddy.jar.asm.MethodVisitor;
 import net.bytebuddy.jar.asm.Opcodes;
+import net.bytebuddy.jar.asm.Type;
 import org.joml.Matrix4f;
 import org.joml.Matrix4d;
 import org.joml.Vector3f;
@@ -81,7 +82,8 @@ public final class ProjectionDepthTest {
         inline("IrisProjectionPatch", "viewpoint.render.IrisUniforms", "matrices");
         inline("IrisCameraPatch", "viewpoint.render.IrisUniforms", "camera");
         inline("UpscalePatch", "viewpoint.render.VendorInputs", "describe");
-        System.out.println("PASS: all 5 production patches inline into the actual installed Viewpoint methods");
+        inline("Bridge$SettingsTabsPatch", "viewpoint.platform.SettingsPages", "body");
+        System.out.println("PASS: all 6 production patches inline into the actual installed Viewpoint methods");
     }
 
     private static double depthGap(Matrix4f projection) {
@@ -141,7 +143,8 @@ public final class ProjectionDepthTest {
     }
 
     private static void inline(String suffix, String targetName, String method) throws Exception {
-        String name = "oldpoint.viewpoint.ProjectionDepth$" + suffix;
+        String name = suffix.startsWith("Bridge$")
+                ? "oldpoint.viewpoint." + suffix : "oldpoint.viewpoint.ProjectionDepth$" + suffix;
         byte[] source;
         try (var in = ProjectionDepthTest.class.getClassLoader().getResourceAsStream(name.replace('.', '/') + ".class")) {
             source = in.readAllBytes();
@@ -155,6 +158,16 @@ public final class ProjectionDepthTest {
                         super.visitMethod(access, name, descriptor, signature, exceptions)) {
                     @Override
                     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+                        if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnEnter;")) {
+                            return new AnnotationVisitor(Opcodes.ASM9,
+                                    super.visitAnnotation("Lnet/bytebuddy/asm/Advice$OnMethodEnter;", visible)) {
+                                @Override public void visit(String name, Object value) {
+                                    if (name.equals("skipOn") && Boolean.TRUE.equals(value)) {
+                                        super.visit("skipOn", Type.getType(Advice.OnNonDefaultValue.class));
+                                    } else super.visit(name, value);
+                                }
+                            };
+                        }
                         return super.visitAnnotation(descriptor.replace("Lme/zed_0xff/zombie_buddy/Patch$OnExit;",
                                 "Lnet/bytebuddy/asm/Advice$OnMethodExit;"), visible);
                     }

@@ -8,9 +8,10 @@ import viewpoint.platform.SettingsWindow;
 
 /** Continuous camera zoom with independent limits and time-based easing. */
 public final class Zoom {
-    private static double minimum = 10;
+    private static double minimum = 88;
     private static double maximum = 600;
     private static double nativeMinimum = 10;
+    private static final double CLOSE_VIEW_SCALE = 0.55;
     private static double current = 100;
     private static double target = 100;
     private static double remembered = 100;
@@ -23,19 +24,22 @@ public final class Zoom {
     private Zoom() {}
 
     private static double clamp(double value) {
-        double lower = Math.max(minimum, nativeMinimum);
+        double lower = minimum;
         return Math.max(lower, Math.min(Math.max(lower, maximum), value));
     }
 
-    /** Native zoom and Layout's cameraZoom express the same tile scale at the camera target plane. */
+    private static float displayFactor(double distance) {
+        // The former 12 setting is the closest comfortable view. Expose it as 10.
+        return (float) (Math.max(12, clamp(distance)) / 100);
+    }
+
+    /** Legacy closest distance, used only to migrate previously clamped settings. */
     public static synchronized double nativeMinimumDistance() {
         double nativeZoom = Core.getInstance().getMinZoom();
         if (Double.isFinite(nativeZoom) && nativeZoom > 0) {
-            nativeMinimum = Math.max(10, Math.min(600, nativeZoom * 100.0 / Layout.CAMERA_ZOOM_SCALE));
+            nativeMinimum = Math.max(10, Math.min(600,
+                    nativeZoom * 100.0 / Layout.CAMERA_ZOOM_SCALE * CLOSE_VIEW_SCALE));
         }
-        target = clamp(target);
-        current = clamp(current);
-        remembered = clamp(remembered);
         return nativeMinimum;
     }
 
@@ -66,12 +70,11 @@ public final class Zoom {
     private static void restoreValue(double value) {
         wheelCycle.clear();
         current = target = clamp(value);
-        renderedFactor = (float) (current / 100);
+        renderedFactor = displayFactor(current);
         lastUpdate = System.nanoTime();
     }
 
     public static synchronized float factor() {
-        nativeMinimumDistance();
         long now = System.nanoTime();
         double seconds = lastUpdate == 0 ? 0 : Math.min(0.1, (now - lastUpdate) * 1e-9);
         lastUpdate = now;
@@ -79,7 +82,7 @@ public final class Zoom {
         if (Math.abs(target - current) < 0.001) {
             current = target;
         }
-        renderedFactor = (float) (clamp(current) / 100);
+        renderedFactor = displayFactor(current);
         return renderedFactor;
     }
 

@@ -75,8 +75,8 @@ final class RoofEdges {
                 request != null
                         && request.cell == cell
                         && request.player == player
-                        && request.x == cx
-                        && request.y == cy
+                        && Math.abs(request.x - cx) <= 4
+                        && Math.abs(request.y - cy) <= 4
                         && request.floor == floor
                         && request.top == top
                         && request.outdoor == (outdoor != null)
@@ -183,8 +183,17 @@ final class RoofEdges {
         }
         scan.finish();
         boolean scanComplete = scan.done();
-        if (!scanComplete && valid) {
+        // A moving player can cross a tile while a budgeted scan is still in
+        // progress. Never publish its incomplete roof list for that frame.
+        if (!scanComplete && old != null
+                && old.cell == cell && old.player == player && old.floor == floor
+                && old.top == top && old.outdoor == (outdoor != null)
+                && old.regions.equals(regions)
+                && Math.abs(old.x - cx) <= 4 && Math.abs(old.y - cy) <= 4) {
             return old.result;
+        }
+        if (!scanComplete) {
+            return List.of();
         }
         result.sort(
                 java.util.Comparator.comparingDouble(

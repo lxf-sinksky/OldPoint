@@ -45,9 +45,10 @@ final class CameraController {
     private static boolean directReturnThirdPerson;
     private static boolean rotating;
     private static volatile int rotationKey = zombie.input.Mouse.MMB;
-    private static volatile boolean stepRotation, smoothStepRotation = true;
-    private static volatile int stepDegrees = 90, leftRotationKey, rightRotationKey;
+    private static volatile boolean stepRotation;
+    private static volatile int stepDegrees, leftRotationKey, rightRotationKey;
     private static boolean leftRotationHeld, rightRotationHeld;
+    private static long continuousRotationAt;
 
     private CameraController() {}
 
@@ -225,10 +226,10 @@ final class CameraController {
 
     static void configureStepRotation(boolean enabled, double degrees, boolean smooth, double left, double right) {
         stepRotation = enabled;
-        stepDegrees = degrees == 45 ? 45 : degrees == 180 ? 180 : 90;
-        smoothStepRotation = smooth;
+        stepDegrees = degrees == 0 ? 0 : degrees == 45 ? 45 : degrees == 180 ? 180 : 90;
         leftRotationKey = validStepKey(left);
         rightRotationKey = validStepKey(right);
+        continuousRotationAt = 0;
     }
 
     private static int validStepKey(double value) {
@@ -253,8 +254,31 @@ final class CameraController {
                 || GameTime.isGamePaused()
                 || Core.getInstance().isDoingTextEntry()
                 || UIManager.isModalVisible()
-                || SettingsWindow.shown()
-                || pressLeft == pressRight) {
+                || SettingsWindow.shown()) {
+            continuousRotationAt = 0;
+            return;
+        }
+        if (stepDegrees == 0) {
+            if (left == right) {
+                continuousRotationAt = 0;
+                return;
+            }
+            long now = System.nanoTime();
+            double seconds = continuousRotationAt == 0 ? 0 : Math.min(0.1, (now - continuousRotationAt) * 1e-9);
+            continuousRotationAt = now;
+            if (rotating && Float.isFinite(Look.yaw)) {
+                orbitYaw = Look.yaw;
+            }
+            rotating = false;
+            OrbitInput.reset();
+            ResetMotion.cancel();
+            orbitYaw = Look.wrap(orbitYaw + (right ? 1 : -1) * OrbitInput.keyTurnRate() * (float) seconds);
+            rememberedOrbitYaw = freeOrbitYaw = orbitYaw;
+            Look.yaw = orbitYaw;
+            return;
+        }
+        continuousRotationAt = 0;
+        if (pressLeft == pressRight) {
             return;
         }
         float amount = (float) Math.toRadians(stepDegrees) * (pressLeft ? -1 : 1);
@@ -263,14 +287,7 @@ final class CameraController {
         }
         rotating = false;
         OrbitInput.reset();
-        if (smoothStepRotation) {
-            ResetMotion.step(orbitYaw, amount);
-        } else {
-            orbitYaw = ResetMotion.targetOr(orbitYaw) + amount;
-            ResetMotion.cancel();
-            rememberedOrbitYaw = orbitYaw;
-            freeOrbitYaw = orbitYaw;
-        }
+        ResetMotion.step(orbitYaw, amount);
         Look.yaw = orbitYaw;
     }
 

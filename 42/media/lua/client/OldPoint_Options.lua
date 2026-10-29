@@ -14,19 +14,21 @@ local resetOverheadKey = options:addKeyBind(
     "resetOverheadOrientation", textOrFallback("UI_OldPoint_ResetOverhead", "Reset overhead orientation and angle"), 0,
     textOrFallback("UI_OldPoint_ResetOverheadHelp", "While in overhead view, restore vanilla orientation and the 30-degree angle. Unbound by default.")
 )
+local rotationControl = options:addComboBox(
+    "cameraControlMode", textOrFallback("UI_OldPoint_CameraControlMode", "Camera rotation control"),
+    textOrFallback("UI_OldPoint_CameraControlHelp", "Choose mouse drag or left and right keys for overhead camera rotation.")
+)
+rotationControl:addItem(textOrFallback("UI_OldPoint_CameraControlMouse", "Mouse control"), true)
+rotationControl:addItem(textOrFallback("UI_OldPoint_CameraControlKeys", "Key control"))
 local rotationKey = options:addKeyBind(
     "cameraRotationKey", textOrFallback("UI_OldPoint_RotationKey", "Camera rotation key"), Mouse.MMB,
     textOrFallback("UI_OldPoint_RotationKeyHelp", "Hold and move the mouse to rotate overhead view. Default: middle mouse button. Click to bind a mouse button or keyboard key; clear to disable. Unavailable with the fixed vanilla angle.")
 )
-local stepRotation = options:addTickBox(
-    "stepRotation", textOrFallback("UI_OldPoint_StepRotation", "Stepped camera rotation"), false,
-    textOrFallback("UI_OldPoint_StepRotationHelp", "Use left/right rotation bindings instead of mouse-drag rotation. Overhead only; unavailable with the fixed vanilla camera.")
-)
 local stepAngle = options:addComboBox("stepRotationAngle", textOrFallback("UI_OldPoint_StepAngle", "Rotation angle per step"))
-stepAngle:addItem("45°")
-stepAngle:addItem("90°", true)
-stepAngle:addItem("180°")
-local stepSmooth = options:addTickBox("stepRotationSmooth", textOrFallback("UI_OldPoint_StepSmooth", "Smooth rotation"), true)
+stepAngle:addItem(textOrFallback("UI_OldPoint_ContinuousRotation", "Smooth rotation"), true)
+stepAngle:addItem("45")
+stepAngle:addItem("90")
+stepAngle:addItem("180")
 local stepLeft = options:addKeyBind("stepRotationLeft", textOrFallback("UI_OldPoint_StepLeft", "Rotate camera left"), 0)
 local stepRight = options:addKeyBind("stepRotationRight", textOrFallback("UI_OldPoint_StepRight", "Rotate camera right"), 0)
 local viewCycle = options:addTickBox(
@@ -81,13 +83,13 @@ visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionAiming", "Simple indic
 visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionNone", "None"))
 local minimumDistance = options:addSlider(
     "minimumDistance", textOrFallback("UI_OldPoint_MinimumDistance", "Minimum view distance"),
-    10, 600, 1, 10,
-    textOrFallback("UI_OldPoint_DistanceHelp", "100 = reference distance; closest view follows vanilla zoom; maximum 600")
+    10, 600, 1, 88,
+    textOrFallback("UI_OldPoint_DistanceHelp", "100 = reference distance; the closest view makes the character larger; maximum 600")
 )
 local maximumDistance = options:addSlider(
     "maximumDistance", textOrFallback("UI_OldPoint_MaximumDistance", "Maximum view distance"),
     10, 600, 1, 600,
-    textOrFallback("UI_OldPoint_DistanceHelp", "100 = reference distance; closest view follows vanilla zoom; maximum 600")
+    textOrFallback("UI_OldPoint_DistanceHelp", "100 = reference distance; the closest view makes the character larger; maximum 600")
 )
 
 local memoryPolicy = options:addComboBox("memoryPolicy", textOrFallback("UI_OldPoint_MemoryPolicy", "Memory policy"),
@@ -105,6 +107,97 @@ local treeClearingRadius = options:addSlider(
     textOrFallback("UI_OldPoint_TreeClearingHelp", "Show folded trees and 3D trees as outlines within the same circle, centred one radius toward the camera. Radius 0 disables the effect.")
 )
 
+local mirrorOptions = {
+    enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
+    stepLeft, stepRight, viewCycle, nativeFixedView, enteringBuilding, leavingBuilding,
+    enteringDriver, leavingDriver, aimingCamera, releasedCamera, playerOutline,
+    aimingSystem, visionRange, visionIndicator, minimumDistance, maximumDistance,
+    memoryPolicy, treeClearing, treeClearingRadius
+}
+local mirrorReady = false
+local minimumMigrationDone = false
+local cameraOptions = {
+    enterOverheadRemembered=true, resetOverheadOrientation=true, cameraControlMode=true,
+    cameraRotationKey=true, stepRotationAngle=true, stepRotationLeft=true,
+    stepRotationRight=true, threeViewCycle=true, nativeFixedView=true,
+    minimumDistance=true, maximumDistance=true
+}
+local visionOptions = {
+    playerOcclusionOutline=true, visionRangeEnabled=true,
+    visionRangeIndicator=true, treeClearing=true, treeClearingRadiusExpanded=true
+}
+local aimingOptions = { aimingSystem=true }
+local experimentalOptions = {
+    enteringBuildingMode=true, leavingBuildingMode=true, enteringDriverMode=true,
+    leavingDriverMode=true, aimingCameraMode=true, releasedCameraMode=true
+}
+
+local function registerMirror()
+    if mirrorReady or not OldPointBridge or not OldPointBridge.settingsToggle then return end
+    local cameraName = textOrFallback("UI_OldPoint_SettingsCamera", "Camera controls")
+    local visionName = textOrFallback("UI_OldPoint_SettingsVisual", "Visibility")
+    local aimingName = textOrFallback("UI_OldPoint_SettingsAiming", "Aiming")
+    local experimentalName = textOrFallback("UI_OldPoint_SettingsExperimental", "Experimental")
+    local performanceName = textOrFallback("UI_OldPoint_SettingsPerformance", "Performance")
+    local camera, vision, aiming, experimental, performance =
+        "OldPoint/" .. cameraName, "OldPoint/" .. visionName,
+        "OldPoint/" .. aimingName, "OldPoint/" .. experimentalName,
+        "OldPoint/" .. performanceName
+    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName}, "\t"))
+    for _, option in ipairs(mirrorOptions) do
+        local section = cameraOptions[option.id] and camera
+            or visionOptions[option.id] and vision
+            or aimingOptions[option.id] and aiming
+            or experimentalOptions[option.id] and experimental or performance
+        local help = option.tooltip or ""
+        local ok, error = pcall(function()
+            if option.type == "tickbox" then
+                OldPointBridge.settingsToggle(option.id, option.name, section, help, option:getValue() == true)
+            elseif option.type == "slider" then
+                OldPointBridge.settingsNumber(option.id, option.name, section, help,
+                    option.min, option.max, option.step, tonumber(option:getValue()) or option.value)
+            elseif option.type == "combobox" then
+                local values = {}
+                for i = 1, #option.values do values[i] = tostring(i - 1) end
+                OldPointBridge.settingsChoice(option.id, option.name, section, help,
+                    table.concat(values, "\t"), table.concat(option.values, "\t"),
+                    (tonumber(option:getValue()) or 1) - 1)
+            elseif option.type == "keybind" then
+                OldPointBridge.settingsKey(option.id, option.name, section, help, tonumber(option:getValue()) or 0)
+            end
+        end)
+        if not ok then print("[OldPoint] Viewpoint setting " .. option.id .. ": " .. tostring(error)) end
+    end
+    if OldPointBridge.settingsShownWhen then
+        OldPointBridge.settingsShownWhen("cameraRotationKey", "cameraControlMode", 0)
+        for _, id in ipairs({"stepRotationAngle", "stepRotationLeft", "stepRotationRight"}) do
+            OldPointBridge.settingsShownWhen(id, "cameraControlMode", 1)
+        end
+    end
+    mirrorReady = true
+end
+
+local function pushMirror()
+    if not mirrorReady then return end
+    for _, option in ipairs(mirrorOptions) do
+        local value = option:getValue()
+        if option.type == "tickbox" then value = value == true and 1 or 0
+        elseif option.type == "combobox" then value = (tonumber(value) or 1) - 1 end
+        OldPointBridge.settingsPut(option.id, tonumber(value) or 0)
+    end
+end
+
+local function pullMirror()
+    for _, option in ipairs(mirrorOptions) do
+        local value = OldPointBridge.settingsGet(option.id)
+        if value and value == value then
+            if option.type == "tickbox" then option:setValue(value ~= 0)
+            elseif option.type == "combobox" then option:setValue(math.floor(value) + 1)
+            else option:setValue(math.floor(value + 0.5)) end
+        end
+    end
+end
+
 local function applyOptions()
     if OldPointBridge and OldPointBridge.setMemoryPolicy then
         OldPointBridge.setMemoryPolicy((tonumber(memoryPolicy:getValue()) or 1) - 1)
@@ -113,9 +206,9 @@ local function applyOptions()
         OldPointBridge.setAimingSystem((tonumber(aimingSystem:getValue()) or 1) - 1)
     end
     if OldPointBridge and OldPointBridge.configureStepRotation then
-        local degrees = ({45, 90, 180})[tonumber(stepAngle:getValue()) or 2] or 90
-        OldPointBridge.configureStepRotation(stepRotation:getValue() == true, degrees,
-            stepSmooth:getValue() == true, tonumber(stepLeft:getValue()) or 0, tonumber(stepRight:getValue()) or 0)
+        local degrees = ({0, 45, 90, 180})[tonumber(stepAngle:getValue()) or 1] or 0
+        OldPointBridge.configureStepRotation(rotationControl:getValue() == 2, degrees,
+            true, tonumber(stepLeft:getValue()) or 0, tonumber(stepRight:getValue()) or 0)
     end
     if OldPointBridge and OldPointBridge.setRotationKey then
         OldPointBridge.setRotationKey(tonumber(rotationKey:getValue()) or Mouse.MMB)
@@ -136,9 +229,19 @@ local function applyOptions()
             (tonumber(aimingCamera:getValue()) or 1) - 1,
             (tonumber(releasedCamera:getValue()) or 1) - 1)
     end
-    local minimum = math.max(10, math.min(600, tonumber(minimumDistance:getValue()) or 10))
-    if getSpecificPlayer(0) and OldPointBridge and OldPointBridge.nativeMinimumDistance then
-        minimum = math.max(minimum, math.ceil(OldPointBridge.nativeMinimumDistance()))
+    local minimum = math.max(10, math.min(600, tonumber(minimumDistance:getValue()) or 88))
+    local migratedMinimum = false
+    if not minimumMigrationDone and getSpecificPlayer(0)
+        and OldPointBridge and OldPointBridge.nativeMinimumDistance then
+        minimumMigrationDone = true
+        local closest = math.ceil(OldPointBridge.nativeMinimumDistance())
+        -- Earlier versions saved a forced minimum into this slider.
+        if math.abs(minimum - closest) <= 1
+            or math.abs(minimum - math.ceil(closest / 0.55)) <= 2
+            or math.abs(minimum - math.ceil(closest * 0.70 / 0.55)) <= 2 then
+            minimum = 88
+            migratedMinimum = true
+        end
     end
     local maximum = math.max(minimum, math.min(600, tonumber(maximumDistance:getValue()) or 600))
     minimumDistance:setValue(minimum)
@@ -160,6 +263,8 @@ local function applyOptions()
         treeClearingRadius:setValue(radius)
         OldPointBridge.setTreeClearing(treeClearing:getValue() == true and radius > 0, radius)
     end
+    pushMirror()
+    if migratedMinimum then PZAPI.ModOptions:save() end
 end
 
 options.apply = applyOptions
@@ -169,6 +274,12 @@ Events.OnGameStart.Add(function()
     if OldPointBridge and OldPointBridge.resetAimCamera then OldPointBridge.resetAimCamera() end
 end)
 Events.OnTick.Add(function()
+    if mirrorReady and OldPointBridge and OldPointBridge.settingsChanged
+        and OldPointBridge.settingsChanged() then
+        pullMirror()
+        applyOptions()
+        PZAPI.ModOptions:save()
+    end
     if OldPointBridge and OldPointBridge.updateImprovedAim then OldPointBridge.updateImprovedAim() end
     if OldPointBridge and OldPointBridge.updateAutomaticCamera then OldPointBridge.updateAutomaticCamera() end
     if OldPointBridge and OldPointBridge.updateAimCamera then OldPointBridge.updateAimCamera() end
@@ -185,32 +296,38 @@ Events.OnHitZombie.Add(function(zombie, attacker, bodyPart, weapon)
     if OldPointBridge and OldPointBridge.improvedAimHit then OldPointBridge.improvedAimHit(zombie, attacker, bodyPart, weapon) end
 end)
 
--- ModOptions has no conditional-visibility API. Collapse only these four
--- rows on the existing panel, keeping their values registered for persistence.
+-- ModOptions has no conditional-visibility API. Show only the rows for the
+-- selected control method; the Delete menu uses native shownWhen predicates.
 local stepLayout
 local function updateStepLayout()
-    local first = stepAngle.element
+    local first = rotationKey.element
+    local keys = stepAngle.element
     local after = viewCycle.element
-    local toggle = stepRotation.element
-    if not first or not after or not toggle or not first.parent then return end
+    local control = rotationControl.element
+    if not first or not keys or not after or not control or not first.parent then return end
     local panel = first.parent
     if not panel:isVisible() then return end
     if not stepLayout or stepLayout.first ~= first then
-        local startY, endY = first:getY(), after:getY()
+        local startY, keysY, endY = first:getY(), keys:getY(), after:getY()
         local nodes = {}
         for _, child in pairs(panel:getChildren()) do
             nodes[#nodes + 1] = {control=child, y=child:getY(), visible=child:isVisible()}
         end
-        stepLayout = {first=first, panel=panel, startY=startY, endY=endY,
+        stepLayout = {first=first, panel=panel, startY=startY, keysY=keysY, endY=endY,
             height=panel:getScrollHeight(), nodes=nodes}
     end
-    local show = toggle:isSelected(1)
-    if stepLayout.show == show then return end
-    stepLayout.show = show
-    local shift = show and 0 or (stepLayout.endY - stepLayout.startY)
+    local keyMode = control.selected == 2
+    if stepLayout.keyMode == keyMode then return end
+    stepLayout.keyMode = keyMode
+    local mouseHeight = stepLayout.keysY - stepLayout.startY
+    local keyHeight = stepLayout.endY - stepLayout.keysY
+    local shift = keyMode and mouseHeight or keyHeight
     for _, node in ipairs(stepLayout.nodes) do
-        if node.y >= stepLayout.startY and node.y < stepLayout.endY then
-            node.control:setVisible(show and node.visible)
+        if node.y >= stepLayout.startY and node.y < stepLayout.keysY then
+            node.control:setVisible(not keyMode and node.visible)
+        elseif node.y >= stepLayout.keysY and node.y < stepLayout.endY then
+            node.control:setVisible(keyMode and node.visible)
+            node.control:setY(node.y - (keyMode and mouseHeight or 0))
         elseif node.y >= stepLayout.endY then
             node.control:setY(node.y - shift)
         end
@@ -219,8 +336,26 @@ local function updateStepLayout()
 end
 Events.OnPreUIDraw.Add(updateStepLayout)
 
+local function migrateRotationOptions()
+    local oldMode
+    local oldOptions = PZAPI.ModOptions.OtherOptions or {}
+    for i = #oldOptions, 1, -1 do
+        local line = oldOptions[i]
+        local value = line:match("^tickbox|OldPoint|stepRotation|([^|\r\n]+)")
+        if value then oldMode = value == "true"; table.remove(oldOptions, i) end
+        if line:match("^tickbox|OldPoint|stepRotationSmooth|") then table.remove(oldOptions, i) end
+    end
+    if oldMode ~= nil then
+        rotationControl:setValue(oldMode and 2 or 1)
+        stepAngle:setValue(oldMode and math.min(4, (tonumber(stepAngle:getValue()) or 2) + 1) or 1)
+        PZAPI.ModOptions:save()
+    end
+end
+
 Events.OnGameBoot.Add(function()
     pcall(function() PZAPI.ModOptions:load() end)
+    migrateRotationOptions()
+    registerMirror()
     applyOptions()
 end)
 

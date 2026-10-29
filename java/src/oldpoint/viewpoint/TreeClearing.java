@@ -150,7 +150,10 @@ public final class TreeClearing {
                                 return false;
                             }
                             String path = m.obj.getPath().replace('\\', '/').toLowerCase(Locale.ROOT);
-                            return path.contains("/nearvegetation/") || path.contains("/pzt3d_trees/");
+                            return path.contains("/nearvegetation/")
+                                    || path.contains("/pzt3d_trees/")
+                                    || (path.contains("/viewpointtreepack/")
+                                            && !path.contains("/emptymodel/"));
                         });
         if (!isTree && !outlinePass) {
             return;

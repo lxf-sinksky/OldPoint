@@ -80,20 +80,7 @@ final class OrbitInput {
             return yaw;
         }
         double delta = sampleCursor(window);
-        float speed = 1;
-        try {
-            if (sensitivity == null) {
-                Field field = Look.class.getDeclaredField("SPEED");
-                field.setAccessible(true);
-                sensitivity = (LiveSettings.Number) field.get(null);
-            }
-            speed = sensitivity.get();
-        } catch (ReflectiveOperationException error) {
-            if (!reported) {
-                reported = true;
-                System.out.println("[OldPoint] orbit sensitivity fallback: " + error);
-            }
-        }
+        float speed = sensitivity();
         if (!Double.isFinite(delta) || !Float.isFinite(speed)) {
             return yaw;
         }
@@ -109,5 +96,29 @@ final class OrbitInput {
         float remaining = (float) (error * Math.exp(-seconds / SMOOTH_SECONDS));
         remaining = Math.max(-MAX_LAG, Math.min(MAX_LAG, remaining));
         return Look.wrap(targetYaw - remaining);
+    }
+
+    /** Continuous keys use the same sensitivity and zoom scale as mouse drag. */
+    static float keyTurnRate() {
+        float scale = Float.isFinite(Look.zoom) && Look.zoom > 0 ? Look.zoom : 1;
+        return sensitivity() * 0.0022f * scale * 480f;
+    }
+
+    private static float sensitivity() {
+        float speed = 1;
+        try {
+            if (sensitivity == null) {
+                Field field = Look.class.getDeclaredField("SPEED");
+                field.setAccessible(true);
+                sensitivity = (LiveSettings.Number) field.get(null);
+            }
+            speed = sensitivity.get();
+        } catch (ReflectiveOperationException error) {
+            if (!reported) {
+                reported = true;
+                System.out.println("[OldPoint] orbit sensitivity fallback: " + error);
+            }
+        }
+        return speed;
     }
 }

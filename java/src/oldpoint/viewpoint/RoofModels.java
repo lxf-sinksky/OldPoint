@@ -139,7 +139,12 @@ public final class RoofModels {
             publish(frame, key, completedModels, completedAt);
             return;
         }
-        if (!key.equals(request)) {
+        boolean continuing = request != null
+                && request.cell == key.cell && request.player == key.player
+                && request.floor == key.floor && request.top == key.top
+                && request.outdoor == key.outdoor && request.regions.equals(key.regions)
+                && Math.abs(request.x - cx) <= 4 && Math.abs(request.y - cy) <= 4;
+        if (!continuing) {
             int scanMinX = cx - 12, scanMaxX = cx + 12, scanMinY = cy - 12, scanMaxY = cy + 12;
             for (var r : regions) {
                 scanMinX = Math.min(scanMinX, r.x() - 2);
@@ -263,8 +268,19 @@ public final class RoofModels {
         }
         scan.finish();
         boolean done = scan.done();
-        if (!done && key.equals(completed)) {
+        // The scan budget often spans several frames. Keep the last complete
+        // mask while the player crosses tiles instead of exposing partial
+        // roof masks and flashing whole packed roof sections back into view.
+        if (!done && completed != null
+                && completed.cell == key.cell && completed.player == key.player
+                && completed.floor == key.floor && completed.top == key.top
+                && completed.outdoor == key.outdoor && completed.regions.equals(key.regions)
+                && Math.abs(completed.x - cx) <= 4 && Math.abs(completed.y - cy) <= 4) {
             publish(frame, key, completedModels, captured);
+            return;
+        }
+        if (!done) {
+            publish(frame, key, Map.of(), captured);
             return;
         }
         Map<PackModel, Map<Chunk, Long>> frozen = new HashMap<>();

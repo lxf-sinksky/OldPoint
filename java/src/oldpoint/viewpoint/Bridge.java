@@ -34,6 +34,60 @@ public final class Bridge {
         return Zoom.nativeMinimumDistance();
     }
 
+    public static void settingsToggle(String id, String label, String section, String help, boolean value) {
+        SettingsMirror.toggle(id, label, section, help, value);
+    }
+
+    public static void settingsNumber(String id, String label, String section, String help,
+                                      double min, double max, double step, double value) {
+        SettingsMirror.number(id, label, section, help, min, max, step, value);
+    }
+
+    public static void settingsChoice(String id, String label, String section, String help,
+                                      String values, String labels, int value) {
+        SettingsMirror.choice(id, label, section, help, values, labels, value);
+    }
+
+    public static void settingsKey(String id, String label, String section, String help, int value) {
+        SettingsMirror.key(id, label, section, help, value);
+    }
+
+    public static void settingsTabs(String labels) {
+        SettingsMirror.tabs(labels);
+    }
+
+    public static void settingsShownWhen(String id, String controller, int value) {
+        SettingsMirror.showWhen(id, controller, value);
+    }
+
+    public static boolean drawSettingsTabs(Object page, java.util.Map<?, ?> byTab,
+                                           java.util.Map<?, ?> byPlace, float width) {
+        return SettingsMirror.drawTabs(page, byTab, byPlace, width);
+    }
+
+    @Patch(className = "viewpoint.platform.SettingsPages", methodName = "body", strictMatch = true)
+    public static final class SettingsTabsPatch {
+        @Patch.OnEnter(skipOn = true)
+        public static boolean enter(@Patch.Argument(0) Object page,
+                                    @Patch.Argument(1) java.util.Map<?, ?> byTab,
+                                    @Patch.Argument(2) java.util.Map<?, ?> byPlace,
+                                    @Patch.Argument(3) float width) {
+            return Bridge.drawSettingsTabs(page, byTab, byPlace, width);
+        }
+    }
+
+    public static void settingsPut(String id, double value) {
+        SettingsMirror.put(id, value);
+    }
+
+    public static double settingsGet(String id) {
+        return SettingsMirror.get(id);
+    }
+
+    public static boolean settingsChanged() {
+        return SettingsMirror.changed();
+    }
+
     public static void setQolWheelRouting(boolean value) {
         Zoom.qolWheelRouting(value);
     }
