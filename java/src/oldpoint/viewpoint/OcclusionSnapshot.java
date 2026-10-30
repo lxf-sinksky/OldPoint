@@ -16,7 +16,7 @@ record OcclusionSnapshot(
         boolean nativeMode,
         boolean outdoor,
         List<Fading> walls,
-        List<RoofEdges.Bounds> roofs,
+        List<RoofBounds> roofs,
         List<RoomBoundary.Run> boundary,
         OpeningFade.Capture openings,
         TreeClearing.Selection trees,
@@ -32,7 +32,8 @@ record OcclusionSnapshot(
         float eyeX,
         float eyeY,
         float eyeZ,
-        NearbyFade.Area nearbyArea) {
+        NearbyFade.Area nearbyArea,
+        boolean roofPreview) {
     record Wall(int x, int y, int floor, int kind) {}
 
     record Fading(Wall wall, float amount, boolean startArc, boolean endArc, boolean maskOnly) {

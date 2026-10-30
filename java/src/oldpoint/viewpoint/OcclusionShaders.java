@@ -10,18 +10,41 @@ final class OcclusionShaders {
         flat in float vOPSourceBase;
         flat in int vOPGeneratedRoof;
         flat in int vOPObjectKind;
+        flat in int vOPModelIndex;
         uniform int uOPAtlasIdentity;
         in vec3 vOPStructure;
         in vec3 vOPLift;
         flat in int vOPCanopy;
         flat in vec3 vOPPlantBase;
         uniform int uOPInterior;
+        uniform int uOPRoofPreview;
         uniform int uOPRoundedWalls;
         uniform vec3 uOPOrigin;
         uniform float uOPFloor;
         uniform int uOPForeignUpperCount;
         uniform int uOPRoomShadeCount;
         uniform int uOPRoomShadeOffset;
+        uniform int uOPRayPlane;
+        uniform vec3 uOPRayPoint;
+        uniform vec3 uOPRayNormal;
+        bool oldPointRayFace() {
+          if (uOPRayPlane==0) return false;
+          vec3 delta=vPos-uOPRayPoint;
+          if (dot(delta,delta)>20.25 || abs(dot(delta,uOPRayNormal))>0.08) return false;
+          vec3 surfaceNormal=cross(dFdx(vPos),dFdy(vPos));
+          float size=length(surfaceNormal);
+          return size>0.000001 && abs(dot(surfaceNormal/size,uOPRayNormal))>0.96;
+        }
+        bool opRoofPreviewed=false;
+        vec3 opRoofTint=vec3(1.0);
+        vec3 oldPointRoofColor(vec3 color) {
+          if (oldPointRayFace()) return mix(color,vec3(0.025,0.12,1.0),0.88);
+          return opRoofPreviewed ? mix(color,opRoofTint,0.8) : color;
+        }
+        void oldPointRoofPreview(bool hidden) {
+          opRoofPreviewed=true;
+          opRoofTint=hidden ? vec3(1.0,0.08,0.04) : vec3(0.05,1.0,0.15);
+        }
         float oldPointRoomLight() {
           if (uOPInterior==0 || uOPRoomShadeCount==0) return 1.0;
           vec3 world=vOPStructure+uOPOrigin;
@@ -115,21 +138,50 @@ final class OcclusionShaders {
           // roads and lawns. Ignore vegetation and water altogether.
           if (world.y<=uOPFloor-2.4494896+0.05) return;
           ivec4 candidates=opSpatial(tile);
+          bool generatedRoof=vOPGeneratedRoof!=0;
+          bool matchedRoof=false;
+          bool hideRoof=false;
           for (int n=0;n<candidates.w;n++) {
             int roofIndex=opSpatialRule(candidates.z+n);
             int i=uOPStructureWallCount+roofIndex*2;
-            if (uOPAtlasIdentity!=int(opFade(i))) continue;
-            vec4 rect=opRoofRect(roofIndex);
-            if (any(greaterThan(abs(vRect-rect),vec4(0.000002)))) continue;
+            // Generated roof faces can borrow wall materials; provenance lets
+            // them use spatial rules without pretending the material is a roof.
+            int identity=int(opFade(i));
+            if (identity<=-2) {
+              if (vOPModelIndex<0 || vOPModelIndex!=-identity-2) continue;
+            } else if (!generatedRoof) {
+              if (uOPAtlasIdentity!=identity) continue;
+              vec4 rect=opRoofRect(roofIndex);
+              if (any(greaterThan(abs(vRect-rect),vec4(0.000002)))) continue;
+            }
             vec4 a=opWall(i);
             vec4 b=opWall(i+1);
             if (world.y>=a.z && world.y<=b.z
-                && all(greaterThanEqual(tile,a.xy)) && all(lessThanEqual(tile,b.xy))) discard;
+                && all(greaterThanEqual(tile,a.xy)) && all(lessThanEqual(tile,b.xy))) {
+              matchedRoof=true;
+              hideRoof=hideRoof || opFade(i+1)>0.5;
+            }
+          }
+          if (matchedRoof) {
+            if (uOPRoofPreview!=0) oldPointRoofPreview(hideRoof);
+            else if (hideRoof) discard;
+            return;
+          }
+          if (generatedRoof) {
+            // Every selected building loses its complete upper roof, including
+            // generated ceilings not yet represented in the candidate scan.
+            bool collapsed=false;
+            for (int i=0;i<uOPRoomCount;i++) {
+              vec4 r=opRoom(i);
+              if (all(greaterThanEqual(tile,r.xy)) && all(lessThan(tile,r.zw))) collapsed=true;
+            }
+            if (uOPRoofPreview!=0) oldPointRoofPreview(collapsed);
+            else if (collapsed) discard;
+            return;
           }
           // Provenance identifies roof faces, hanging eaves and vertical gables
           // even when their material was borrowed from an ordinary wall.
           // The walking-floor guard above still preserves ground surfaces.
-          bool generatedRoof=vOPGeneratedRoof!=0;
           // Far shells do not retain source floor. Clip upper fragments of
           // selected neighbouring buildings by height, preserving their base.
           if (vOPSourceBase < -99999.0 && world.y>=uOPFloor-0.015) {
@@ -138,7 +190,8 @@ final class OcclusionShaders {
               if (all(greaterThanEqual(tile,r.xy)) && all(lessThan(tile,r.zw))) discard;
             }
           }
-          if ((generatedRoof || vOPSourceBase>=uOPFloor-0.015 || vOPSourceBase < -99999.0 && abs(vNormal.y)>0.5 && world.y>=uOPFloor-0.015)) {
+          if ((vOPSourceBase>=uOPFloor-0.015
+              || vOPSourceBase < -99999.0 && abs(vNormal.y)>0.5 && world.y>=uOPFloor-0.015)) {
             for (int i=0;i<uOPRoomCount;i++) {
               vec4 r=opRoom(i);
               if (all(greaterThanEqual(tile,r.xy)) && all(lessThan(tile,r.zw))) discard;
@@ -208,13 +261,15 @@ final class OcclusionShaders {
             source =
                     source.replaceAll(
                                     "(gAlbedo = vec4\\([^;]+;)",
-                                    "$1\n  gAlbedo.rgb = gAlbedo.rgb*oldPointRoomLight();")
+                                    "$1\n  gAlbedo.rgb = oldPointRoofColor(gAlbedo.rgb*oldPointRoomLight());")
                             .replace(
                                     "vec3 color = shade(",
-                                    "s.albedo = s.albedo*oldPointRoomLight();\n  vec3 color = shade(")
+                                    "s.albedo = oldPointRoofColor(s.albedo*oldPointRoomLight());"
+                                            + "\n  vec3 color = shade(")
                             .replace(
                                     "vec3 color = wetGround(",
-                                    "s.albedo = s.albedo*oldPointRoomLight();\n  vec3 color = wetGround(");
+                                    "s.albedo = oldPointRoofColor(s.albedo*oldPointRoomLight());"
+                                            + "\n  vec3 color = wetGround(");
             // Declare before the existing surface helpers as well as our cutaway.
             source =
                     source.replace("flat in vec4 vRect;", "flat in vec4 vRect;\nflat in int vOPOpening;")
@@ -277,7 +332,14 @@ final class OcclusionShaders {
                             "  unpackMesh();\n  oldPointInterior();")
                     .replace(
                             "return surface(uv);",
-                            "vec4 opSurface=surface(uv); opSurface.rgb=opSurface.rgb*oldPointRoomLight(); return opSurface;");
+                            "vec4 opSurface=surface(uv); "
+                                    + "opSurface.rgb=oldPointRoofColor(opSurface.rgb*oldPointRoomLight()); "
+                                    + "return opSurface;")
+                    .replace(
+                            "return texelFetch(vp_albedoTex, p, lod);",
+                            "vec4 opSurface=texelFetch(vp_albedoTex,p,lod); "
+                                    + "opSurface.rgb=oldPointRoofColor(opSurface.rgb*oldPointRoomLight()); "
+                                    + "return opSurface;");
         }
         if (path.equals("iris/far_shell_fragment.glsl")) {
             return source.replace(
@@ -285,10 +347,10 @@ final class OcclusionShaders {
                             TERRAIN + "\nvoid prologue() {\n  oldPointInterior();")
                     .replace(
                             "return shellTexel;",
-                            "return vec4(shellTexel.rgb*oldPointRoomLight(),shellTexel.a);")
+                            "return vec4(oldPointRoofColor(shellTexel.rgb*oldPointRoomLight()),shellTexel.a);")
                     .replace(
                             "return c * shellTexel.rgb;",
-                            "return c * shellTexel.rgb * oldPointRoomLight();")
+                            "return c * oldPointRoofColor(shellTexel.rgb * oldPointRoomLight());")
                     // A built near chunk still supplies detailed geometry in
                     // overhead mode even when the eye is outside the near radius.
                     .replace(

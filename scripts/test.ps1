@@ -39,8 +39,8 @@ function Invoke-JavaTest {
 
 # Compile only the suites being run, into one isolated test output directory.
 $tests = @()
-if ($selected -contains 'Hooks') { $tests += 'HookInliningTest', 'ProjectionDepthTest' }
-if ($selected -contains 'Occlusion') { $tests += 'OcclusionRulesTest', 'CutawayGeometryTest', 'CutawayProjectionTest' }
+if ($selected -contains 'Hooks') { $tests += 'HookInliningTest', 'ProjectionDepthTest', 'RoofShaderOutputTest', 'RayPlaneMathTest', 'RayHeightTest', 'RoofPatchMatchingTest' }
+if ($selected -contains 'Occlusion') { $tests += 'OcclusionRulesTest', 'CutawayGeometryTest', 'CutawayProjectionTest', 'RoofSelectionTest' }
 if ($selected -contains 'Reference') { $tests += 'NativeWallContour', 'NativeWallContourTest', 'CutawayProjectionTest' }
 $testOut = Join-Path $repo 'java\build\suite-tests'
 if ($tests.Count -gt 0) {
@@ -62,13 +62,17 @@ if ($selected -contains 'Occlusion') {
     Invoke-PythonTest 'java\tests\run_opening_tests.py' @(
         '--jdk', $Jdk, '--tiles', (Join-Path (Split-Path -Parent $Game) 'media\newtiledefinitions.tiles')
     )
-    foreach ($test in @('OcclusionRulesTest', 'CutawayGeometryTest', 'CutawayProjectionTest')) {
+    foreach ($test in @('OcclusionRulesTest', 'CutawayGeometryTest', 'CutawayProjectionTest', 'RoofSelectionTest')) {
         Invoke-JavaTest $test
     }
 }
 if ($selected -contains 'Hooks') {
     Invoke-JavaTest 'HookInliningTest'
     Invoke-JavaTest 'ProjectionDepthTest'
+    Invoke-JavaTest 'RoofShaderOutputTest'
+    Invoke-JavaTest 'RayPlaneMathTest'
+    Invoke-JavaTest 'RayHeightTest'
+    Invoke-JavaTest 'RoofPatchMatchingTest'
 }
 if ($selected -contains 'Reference') {
     Invoke-JavaTest 'NativeWallContourTest'

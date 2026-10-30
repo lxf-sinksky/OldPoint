@@ -10,11 +10,16 @@
 | Camera | CameraDrawingTest | 快照读取、线程隔离和异常清理 |
 | Camera | ZoomLimitsTest | 原版最近缩放换算、滚轮范围与视距记忆恢复 |
 | Hooks | HookInliningTest | 实际生产回调通过 ByteBuddy 内联到外部包后可以执行 |
-| Hooks | ProjectionDepthTest | 投影与逆投影、Iris 和超分辨率参数、普通帧隔离及五个 Viewpoint 挂接入口 |
+| Hooks | RoofPatchMatchingTest | 使用真实 ZombieBuddy 严格匹配器验证屋顶/山墙标记能匹配三参数生成入口 |
+| Hooks | RayHeightTest | 使用真实 FarRelief 数据验证采样高度还原，防止 3 层误报为 -37 层 |
+| Hooks | RayPlaneMathTest | 水平/斜屋顶、垂直墙法线和深度交界拒绝 |
+| Hooks | RoofShaderOutputTest | 真实 Viewpoint 普通/Iris 近景与远景材质入口均应用屋顶调试颜色 |
+| Hooks | ProjectionDepthTest | 投影与逆投影、Iris 和超分辨率参数、普通帧隔离及九个 Viewpoint 挂接入口 |
 | Occlusion | CutawaySelectionTest | 模拟世界中执行生产室内外选择，检查前后墙、目标与建筑选择 |
 | Occlusion | WallTopologyCaptureTest / WallContourTest | 实体邻墙、对象身份、两端轮廓、组合面、语义隔离和容量 |
 | Occlusion | ObjectFadeTest | 同对象各表示共享透明度、缓存推进、恢复、快照和上下文隔离 |
 | Occlusion | run_opening_tests.py | 原版落地玻璃窗属性、贴图/模型包半透明绑定、未选中状态及实体墙保护 |
+| Occlusion | RoofSelectionTest | 同栋屋顶整体隐藏、建筑归属优先、无归属屋檐回退、楼层保护 |
 | Occlusion | OcclusionRulesTest | 生产规则打包后的端点、楼层和强度 |
 | Occlusion | CutawayGeometryTest / CutawayProjectionTest | 旋转、空间范围、投影边界与退化输入 |
 | Reference | NativeWallContourTest | 原版列选择与端点映射 |

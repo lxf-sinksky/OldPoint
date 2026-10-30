@@ -6,9 +6,9 @@ This repository contains the source code for the OldPoint Project Zomboid mod. I
 
 ## 版本 / Version
 
-当前源码为 **0.6.153 测试候选版**。它已编译，但此版本的游戏内效果尚待验证。创意工坊已发布版本可能不同。
+当前源码版本为 **0.6.160**。俯视模式内置按建筑隐藏屋顶、屋檐和生成山墙的功能；屋顶着色、鼠标命中、法线及平面高亮保留在“调试”页，默认关闭。创意工坊已发布版本可能不同。
 
-This is the **0.6.153 candidate source**. It compiles, but this version has not yet been confirmed in game. The published Workshop version may differ.
+Current source version: **0.6.160**. Overhead mode includes building-wide roof, eave and generated-gable cutaways. Roof colors, mouse picking, normals and plane highlights remain available on the Debug page and default to off. The published Workshop version may differ.
 
 ## 依赖 / Dependencies
 

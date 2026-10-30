@@ -60,6 +60,7 @@ final class OcclusionRendering {
 
     private static void upload(GlProgram p, OcclusionSnapshot s, boolean shadow) {
         boolean enabled = s != null && CameraDrawing.drawTopDown() && !shadow;
+        RayPlane.uniforms(p, s, enabled);
         if (p.has("uOPInterior")) {
             p.setInt("uOPInterior", enabled ? 1 : 0);
         }
@@ -68,6 +69,9 @@ final class OcclusionRendering {
         }
         if (p.has("uOPTreeEnabled")) {
             p.setInt("uOPTreeEnabled", enabled && TreeClearing.active() && s.trees().cells().length > 0 ? 1 : 0);
+        }
+        if (p.has("uOPRoofPreview")) {
+            p.setInt("uOPRoofPreview", enabled && s.roofPreview() ? 1 : 0);
         }
         if (!enabled) {
             CutawayData.bind(p);

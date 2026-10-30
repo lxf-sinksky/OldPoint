@@ -16,13 +16,17 @@ OldPoint 为 Viewpoint 增加俯视相机、瞄准与交互适配，以及建筑
 | NativeRooms / NativeCutaway | 从游戏房间和原版可见性状态选取目标空间 |
 | OutdoorTargets / OutdoorCutaway / RoomWallOcclusion | 室内外目标、建筑与墙体候选选择 |
 | CutawayProjection / WallTopology / WallContour | 连续投影、实体邻墙捕获和墙体端点轮廓 |
+| RoofCutaway / RoofSelection / RoofBounds | 按建筑选择屋顶与屋檐，缓存身份并发布贴图/模型规则 |
+| GeneratedRoofs / SurfaceCeilings | 保留原生生成屋顶、山墙与可选补面模组的屋顶来源 |
+| RoofModels | 按场景发布屋顶模型实例掩码，保留阴影投射 |
+| RayProbe / RayPlane / RayPlaneMath | 可选深度命中、几何法线估算与平面高亮，不参与屋顶隐藏决策 |
 | OpeningFade / ObjectFade / ObjectOpacity | 开口及物体表示捕获、按对象共享的透明度状态 |
 | OcclusionSnapshot | CPU 查询和 GPU 打包共同消费的遮挡结果 |
 | OcclusionRules | 将快照打包为规则表，比较内容并复用结果，不调用 OpenGL |
 | OcclusionRendering / CutawayData | 绘制线程的快照绑定、uniform 和 GPU 缓冲上传与恢复 |
 | OcclusionShaders | 内置与 Iris 着色器文本转换 |
 
-墙体规则见[墙体遮挡](continuous-cutaway-projection.md)，物体透明度见[对象消隐](object-fade.md)。测试目录中的 `NativeWallContour` 用于原版参考对照，不进入产品 JAR。
+屋顶规则见[建筑屋顶隐藏](roof-cutaway.md)，墙体规则见[墙体遮挡](continuous-cutaway-projection.md)，物体透明度见[对象消隐](object-fade.md)。测试目录中的 `NativeWallContour` 用于原版参考对照，不进入产品 JAR。
 
 ## 调用方向
 

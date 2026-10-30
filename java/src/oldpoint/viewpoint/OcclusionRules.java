@@ -97,9 +97,9 @@ final class OcclusionRules {
         }
         for (var r : s.roofs()) {
             put(out, r.x(), r.y(), r.up(), 3);
-            put(out, r.atlas(), 0, 0, 0);
+            put(out, r.identity(), 0, 0, 0);
             put(out, r.x2(), r.y2(), r.up2(), 4);
-            put(out, 0, 0, 0, 0);
+            put(out, r.hidden() ? 1 : 0, 0, 0, 0);
         }
         int roofOffset = out.position() / 4;
         for (var r : s.roofs()) {

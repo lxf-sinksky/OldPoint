@@ -55,8 +55,9 @@ public final class ZoomLimitsTest {
         Zoom.limits(10,600);
         Core.closest=0.25f; close(Zoom.nativeMinimumDistance(),42.96875);
         wheel(1); close(target(),10);
-        Core.closest=1.0f; Zoom.factor(); close(target(),10);
-        Zoom.remember(); Zoom.restore(); close(Zoom.factor(),0.12);
+        Core.closest=1.0f; double captured=Zoom.factor(); close(target(),10);
+        Zoom.remember(); Zoom.restore(); close(Zoom.factor(),captured);
+        Zoom.limits(10,10); Zoom.remember(); Zoom.restore(); close(Zoom.factor(),0.12);
         Zoom.limits(12,600); Zoom.restore(); close(Zoom.factor(),0.12);
         wheel(-1); close(target(),600);
         System.out.println("PASS native closest zoom conversion, wheel clamps, retained 600 far limit, custom bounds and restore");

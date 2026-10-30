@@ -184,13 +184,14 @@ public final class CameraControllerTest {
             }
             case "step-rotation" -> {
                 overhead();
-                CameraController.configureStepRotation(true, 90, false, 20, 21);
+                CameraController.configureStepRotation(true, 90, true, 20, 21);
                 float before = CameraController.orbitYaw();
                 zombie.input.GameKeyboard.held.add(21);
                 CameraController.updateStepRotation(true);
-                close(CameraController.orbitYaw(), before + (float) Math.PI / 2, "One right step");
+                require(ResetMotion.active(), "Step starts a smooth transition");
+                close(ResetMotion.targetOr(before), before + (float) Math.PI / 2, "One right step target");
                 CameraController.updateStepRotation(true);
-                close(CameraController.orbitYaw(), before + (float) Math.PI / 2, "Held key must not repeat step");
+                close(ResetMotion.targetOr(before), before + (float) Math.PI / 2, "Held key must not repeat step");
             }
             case "facing" -> {
                 require(CameraController.requestCameraModeFacing(2, 1.1f), "Request facing");

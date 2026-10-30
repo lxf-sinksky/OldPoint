@@ -107,12 +107,30 @@ local treeClearingRadius = options:addSlider(
     textOrFallback("UI_OldPoint_TreeClearingHelp", "Show folded trees and 3D trees as outlines within the same circle, centred one radius toward the camera. Radius 0 disables the effect.")
 )
 
+local roofDebug = options:addTickBox(
+    "roofProjectionDebug", getText("UI_OldPoint_RoofDebug"), false,
+    getText("UI_OldPoint_RoofDebugHelp")
+)
+
+local rayProbe = options:addTickBox(
+    "roofRayProbe", getText("UI_OldPoint_RayProbe"), false, getText("UI_OldPoint_RayProbeHelp")
+)
+
+local rayLabels = {
+    title=getText("UI_OldPoint_RayProbeTitle"), empty=getText("UI_OldPoint_RayProbeEmpty"),
+    point=getText("UI_OldPoint_RayProbePoint"), ray=getText("UI_OldPoint_RayProbeRay"),
+    rules=getText("UI_OldPoint_RayProbeRules"), nearby=getText("UI_OldPoint_RayProbeNearby"),
+    roof=getText("UI_OldPoint_RayProbeRoof"), other=getText("UI_OldPoint_RayProbeOther"),
+    note=getText("UI_OldPoint_RayProbeNote"), normal=getText("UI_OldPoint_RayProbeNormal"),
+    noPlane=getText("UI_OldPoint_RayProbeNoPlane")
+}
+
 local mirrorOptions = {
     enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
     stepLeft, stepRight, viewCycle, nativeFixedView, enteringBuilding, leavingBuilding,
     enteringDriver, leavingDriver, aimingCamera, releasedCamera, playerOutline,
     aimingSystem, visionRange, visionIndicator, minimumDistance, maximumDistance,
-    memoryPolicy, treeClearing, treeClearingRadius
+    memoryPolicy, treeClearing, treeClearingRadius, roofDebug, rayProbe
 }
 local mirrorReady = false
 local minimumMigrationDone = false
@@ -132,6 +150,8 @@ local experimentalOptions = {
     leavingDriverMode=true, aimingCameraMode=true, releasedCameraMode=true
 }
 
+local debugOptions = { roofProjectionDebug=true, roofRayProbe=true }
+
 local function registerMirror()
     if mirrorReady or not OldPointBridge or not OldPointBridge.settingsToggle then return end
     local cameraName = textOrFallback("UI_OldPoint_SettingsCamera", "Camera controls")
@@ -139,16 +159,18 @@ local function registerMirror()
     local aimingName = textOrFallback("UI_OldPoint_SettingsAiming", "Aiming")
     local experimentalName = textOrFallback("UI_OldPoint_SettingsExperimental", "Experimental")
     local performanceName = textOrFallback("UI_OldPoint_SettingsPerformance", "Performance")
-    local camera, vision, aiming, experimental, performance =
+    local debugName = getText("UI_OldPoint_SettingsDebug")
+    local camera, vision, aiming, experimental, performance, debug =
         "OldPoint/" .. cameraName, "OldPoint/" .. visionName,
         "OldPoint/" .. aimingName, "OldPoint/" .. experimentalName,
-        "OldPoint/" .. performanceName
-    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName}, "\t"))
+        "OldPoint/" .. performanceName, "OldPoint/" .. debugName
+    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName, debugName}, "\t"))
     for _, option in ipairs(mirrorOptions) do
         local section = cameraOptions[option.id] and camera
             or visionOptions[option.id] and vision
             or aimingOptions[option.id] and aiming
-            or experimentalOptions[option.id] and experimental or performance
+            or experimentalOptions[option.id] and experimental
+            or debugOptions[option.id] and debug or performance
         local help = option.tooltip or ""
         local ok, error = pcall(function()
             if option.type == "tickbox" then
@@ -199,6 +221,12 @@ local function pullMirror()
 end
 
 local function applyOptions()
+    if OldPointBridge and OldPointBridge.configureRayProbe then
+        OldPointBridge.configureRayProbe(rayProbe:getValue() == true)
+    end
+    if OldPointBridge and OldPointBridge.configureRoofDebug then
+        OldPointBridge.configureRoofDebug(roofDebug:getValue() == true)
+    end
     if OldPointBridge and OldPointBridge.setMemoryPolicy then
         OldPointBridge.setMemoryPolicy((tonumber(memoryPolicy:getValue()) or 1) - 1)
     end
@@ -291,6 +319,12 @@ end)
 
 Events.OnPostUIDraw.Add(function()
     if OldPointBridge and OldPointBridge.drawImprovedAim then OldPointBridge.drawImprovedAim() end
+    if rayProbe:getValue() == true and OldPointBridge and OldPointBridge.drawRayProbe then
+        OldPointBridge.drawRayProbe(rayLabels)
+    end
+    if roofDebug:getValue() == true and OldPointBridge and OldPointBridge.drawRoofDebug then
+        OldPointBridge.drawRoofDebug(getText("UI_OldPoint_RoofDebugTitle"), getText("UI_OldPoint_RoofScanning"))
+    end
 end)
 Events.OnHitZombie.Add(function(zombie, attacker, bodyPart, weapon)
     if OldPointBridge and OldPointBridge.improvedAimHit then OldPointBridge.improvedAimHit(zombie, attacker, bodyPart, weapon) end
@@ -352,9 +386,22 @@ local function migrateRotationOptions()
     end
 end
 
+local function migrateRoofOptions()
+    local oldOptions = PZAPI.ModOptions.OtherOptions or {}
+    local changed = false
+    for i = #oldOptions, 1, -1 do
+        if oldOptions[i]:match("^tickbox|OldPoint|roofProjectionExperiment|") then
+            table.remove(oldOptions, i)
+            changed = true
+        end
+    end
+    if changed then PZAPI.ModOptions:save() end
+end
+
 Events.OnGameBoot.Add(function()
     pcall(function() PZAPI.ModOptions:load() end)
     migrateRotationOptions()
+    migrateRoofOptions()
     registerMirror()
     applyOptions()
 end)

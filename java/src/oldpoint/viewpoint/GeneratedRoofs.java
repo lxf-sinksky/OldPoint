@@ -48,10 +48,13 @@ public final class GeneratedRoofs {
         }
     }
 
+    // ZombieBuddy strict matching requires explicit arguments; a Return-only
+    // advice is treated as a zero-argument target and never matches these generators.
     @Patch(className = "viewpoint.world.RoofCook", methodName = "vertices", strictMatch = true)
     public static final class RoofPatch {
         @Patch.OnExit
-        public static void exit(@Patch.Return float[] vertices) {
+        public static void exit(@Patch.Argument(0) Object surface, @Patch.Argument(1) Object window,
+                                @Patch.Argument(2) Object operation, @Patch.Return float[] vertices) {
             GeneratedRoofs.tag(vertices, false);
         }
     }
@@ -59,7 +62,8 @@ public final class GeneratedRoofs {
     @Patch(className = "viewpoint.world.RoofGables", methodName = "vertices", strictMatch = true)
     public static final class GablePatch {
         @Patch.OnExit
-        public static void exit(@Patch.Return float[] vertices) {
+        public static void exit(@Patch.Argument(0) Object surface, @Patch.Argument(1) Object window,
+                                @Patch.Argument(2) Object operation, @Patch.Return float[] vertices) {
             GeneratedRoofs.tag(vertices, true);
         }
     }

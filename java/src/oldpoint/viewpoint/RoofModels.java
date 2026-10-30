@@ -13,23 +13,13 @@ import viewpoint.packs.PackBind;
 import viewpoint.platform.GlProgram;
 import viewpoint.render.PackModel;
 import viewpoint.render.SceneData;
-import viewpoint.world.WorldMesher;
-import zombie.characters.IsoGameCharacter;
-import zombie.iso.IsoWorld;
 
 /** Mask selected roof instances, without cutting wall vertices in the same space. */
 public final class RoofModels {
     private record Chunk(int x, int y, int floor) {}
 
     // A weak-key cache value must never hold its own SceneData key.
-    private record State(
-            Map<PackModel, Map<Chunk, Long>> models,
-            long captured,
-            int regions,
-            int floor,
-            int x,
-            int y,
-            boolean outdoor) {}
+    private record State(Map<PackModel, Map<Chunk, Long>> models) {}
 
     private record Drawing(SceneData scene, State state) {}
 
@@ -46,27 +36,10 @@ public final class RoofModels {
         snapshots.remove(scene);
     }
 
-    private record Key(
-            Object cell, Object player, List<Layout.Rect> regions, int floor, int x, int y, int top, boolean outdoor) {}
-
-    private static Key request, completed;
-    private static CaptureScan scan;
-    private static Map<PackModel, Map<Chunk, Long>> pending;
-    private static Map<PackModel, Map<Chunk, Long>> completedModels = Map.of();
-    private static long completedAt;
-
     static void clear() {
         snapshots.clear();
         roofAssets.clear();
-        request = null;
-        completed = null;
-        scan = null;
-        pending = null;
-        completedModels = Map.of();
-        completedAt = 0;
     }
-
-    static final int NEARBY_RADIUS = 12;
 
     static boolean roofSprite(zombie.iso.sprite.IsoSprite sprite) {
         if (sprite == null) {
@@ -117,189 +90,16 @@ public final class RoofModels {
         return false;
     }
 
-    static void capture(
-            Frame frame, IsoGameCharacter player, List<Layout.Rect> regions, OutdoorCutaway.Selection outdoor) {
-        if (player.getCurrentSquare() == null || regions.isEmpty()) {
-            reset(frame.scene);
-            request = null;
-            scan = null;
-            pending = null;
-            return;
-        }
-        int cx = (int) Math.floor(player.getX()), cy = (int) Math.floor(player.getY());
-        int floor = (int) Math.floor(player.getZ());
-        long captured = System.nanoTime();
-        var cell = IsoWorld.instance.getCell();
-        int top = floor + 1;
-        for (int i = 0; i < frame.scene.meshCount; i++) {
-            top = Math.max(top, frame.scene.meshes[i].level);
-        }
-        Key key = new Key(cell, player, List.copyOf(regions), floor, cx, cy, top, outdoor != null);
-        if (key.equals(completed) && captured - completedAt < 250_000_000L) {
-            publish(frame, key, completedModels, completedAt);
-            return;
-        }
-        boolean continuing = request != null
-                && request.cell == key.cell && request.player == key.player
-                && request.floor == key.floor && request.top == key.top
-                && request.outdoor == key.outdoor && request.regions.equals(key.regions)
-                && Math.abs(request.x - cx) <= 4 && Math.abs(request.y - cy) <= 4;
-        if (!continuing) {
-            int scanMinX = cx - 12, scanMaxX = cx + 12, scanMinY = cy - 12, scanMaxY = cy + 12;
-            for (var r : regions) {
-                scanMinX = Math.min(scanMinX, r.x() - 2);
-                scanMaxX = Math.max(scanMaxX, r.x() + r.width() + 1);
-                scanMinY = Math.min(scanMinY, r.y() - 2);
-                scanMaxY = Math.max(scanMaxY, r.y() + r.height() + 1);
-            }
-            scanMinX = Math.max(cx - 48, scanMinX);
-            scanMaxX = Math.min(cx + 48, scanMaxX);
-            scanMinY = Math.max(cy - 48, scanMinY);
-            scanMaxY = Math.min(cy + 48, scanMaxY);
-            scan = new CaptureScan(scanMinX, scanMaxX, scanMinY, scanMaxY, floor - 1, Math.min(31, top));
-            pending = new HashMap<>();
-            request = key;
-        }
-        Map<PackModel, Map<Chunk, Long>> models = pending;
-        scan.begin();
-        while (scan.next()) {
-            int x = scan.x, y = scan.y, z = scan.z;
-            boolean nearby = Math.abs(x - cx) <= NEARBY_RADIUS && Math.abs(y - cy) <= NEARBY_RADIUS;
-            boolean selected = outdoor == null && nearby;
-            for (var r : regions) {
-                if (x >= r.x() - 1 && y >= r.y() - 1 && x < r.x() + r.width() + 1 && y < r.y() + r.height() + 1) {
-                    selected = true;
-                    break;
-                }
-            }
-            var square = cell.getGridSquare(x, y, z);
-            if (square == null) {
-                continue;
-            }
-            if (outdoor != null && !outdoor.buildings().isEmpty() && !outdoor.roofOwner(square, x, y)) {
-                continue;
-            }
-            var objects = square.getObjects();
-            for (int i = scan.objectIndex; i < objects.size(); i++) {
-                if (!scan.allowObject(i)) {
-                    break;
-                }
-                var object = objects.get(i);
-                var sprite = object.getSprite();
-                if (sprite == null) {
-                    continue;
-                }
-                if (sprite.getType() != null && sprite.getType().name().startsWith("stairs")
-                        || sprite.getProperties().has(zombie.iso.SpriteDetails.IsoFlagType.attachtostairs)) {
-                    continue;
-                }
-                String name = sprite.name == null ? "" : sprite.name.toLowerCase(java.util.Locale.ROOT);
-                boolean marker = name.startsWith("tilefix_markers_");
-                var bind = ModelPacks.bind(sprite);
-                if (bind == null || bind.model.state() != PackModel.RESIDENT) {
-                    continue;
-                }
-                boolean roof = roofObject(object, sprite, bind);
-                if (!roof && !marker) {
-                    continue;
-                }
-                if (!roof
-                        && marker
-                        && object.hasModData()
-                        && object.getModData().rawget("tilefixFrom") instanceof String) {
-                    continue;
-                }
-                // Never hide a complete packed roof that lies at/below the
-                // player's walking floor. Read existing bounds; do not build.
-                float[] bounds = bind.model.bounds();
-                if (bounds != null && bounds.length >= 6) {
-                    float high =
-                            z * 2.4494896f
-                                    + WorldMesher.rise(object)
-                                    + bind.z
-                                    + Math.max(bounds[1] * bind.scale, bounds[4] * bind.scale);
-                    if (!Float.isFinite(high) || high <= floor * 2.4494896f + 0.05f) {
-                        continue;
-                    }
-                } else if (z <= floor) {
-                    continue;
-                }
-                // An eave can be anchored outside the room while its mesh
-                // projects into the selected room. Use its actual footprint.
-                if (!selected) {
-                    if (bounds == null || bounds.length < 6) {
-                        continue;
-                    }
-                    float minX = Float.POSITIVE_INFINITY, minY = minX;
-                    float maxX = Float.NEGATIVE_INFINITY, maxY = maxX;
-                    float[] placed = new float[3];
-                    for (int corner = 0; corner < 8; corner++) {
-                        bind.place(
-                                bounds[(corner & 1) == 0 ? 0 : 3],
-                                bounds[(corner & 2) == 0 ? 1 : 4],
-                                bounds[(corner & 4) == 0 ? 2 : 5],
-                                PackBind.turns(sprite),
-                                placed);
-                        float px = x + 0.5f + bind.x - placed[0], py = y + 0.5f + bind.y - placed[2];
-                        minX = Math.min(minX, px);
-                        maxX = Math.max(maxX, px);
-                        minY = Math.min(minY, py);
-                        maxY = Math.max(maxY, py);
-                    }
-                    boolean overlap = false;
-                    for (var r : regions) {
-                        if (maxX > r.x() && maxY > r.y() && minX < r.x() + r.width() && minY < r.y() + r.height()) {
-                            overlap = true;
-                            break;
-                        }
-                    }
-                    if (!overlap) {
-                        continue;
-                    }
-                }
-                // A high marker can be a wall cap. Height alone is not evidence of a roof.
-                if (!roof && z <= floor) {
-                    continue;
-                }
-                Chunk chunk = new Chunk(Math.floorDiv(x, 8), Math.floorDiv(y, 8), z);
-                long bit = 1L << (Math.floorMod(y, 8) * 8 + Math.floorMod(x, 8));
-                models.computeIfAbsent(bind.model, k -> new HashMap<>()).merge(chunk, bit, (a, b) -> a | b);
-            }
-        }
-        scan.finish();
-        boolean done = scan.done();
-        // The scan budget often spans several frames. Keep the last complete
-        // mask while the player crosses tiles instead of exposing partial
-        // roof masks and flashing whole packed roof sections back into view.
-        if (!done && completed != null
-                && completed.cell == key.cell && completed.player == key.player
-                && completed.floor == key.floor && completed.top == key.top
-                && completed.outdoor == key.outdoor && completed.regions.equals(key.regions)
-                && Math.abs(completed.x - cx) <= 4 && Math.abs(completed.y - cy) <= 4) {
-            publish(frame, key, completedModels, captured);
-            return;
-        }
-        if (!done) {
-            publish(frame, key, Map.of(), captured);
-            return;
+    static void capture(Frame frame, List<RoofCutaway.Model> selected) {
+        Map<PackModel, Map<Chunk, Long>> models = new HashMap<>();
+        for (var roof : selected) {
+            Chunk chunk = new Chunk(Math.floorDiv(roof.x(), 8), Math.floorDiv(roof.y(), 8), roof.floor());
+            long bit = 1L << (Math.floorMod(roof.y(), 8) * 8 + Math.floorMod(roof.x(), 8));
+            models.computeIfAbsent(roof.model(), k -> new HashMap<>()).merge(chunk, bit, (a, b) -> a | b);
         }
         Map<PackModel, Map<Chunk, Long>> frozen = new HashMap<>();
         models.forEach((model, masks) -> frozen.put(model, Map.copyOf(masks)));
-        Map<PackModel, Map<Chunk, Long>> result = Map.copyOf(frozen);
-        if (done) {
-            completed = key;
-            completedModels = result;
-            completedAt = System.nanoTime();
-            request = null;
-            scan = null;
-            pending = null;
-        }
-        publish(frame, key, result, captured);
-    }
-
-    private static void publish(Frame frame, Key key, Map<PackModel, Map<Chunk, Long>> models, long time) {
-        snapshots.put(
-                frame.scene, new State(models, time, key.regions.hashCode(), key.floor, key.x, key.y, key.outdoor));
+        snapshots.put(frame.scene, new State(Map.copyOf(frozen)));
     }
 
     public static void begin(SceneData scene, GlProgram program) {

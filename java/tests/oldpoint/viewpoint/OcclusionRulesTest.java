@@ -10,6 +10,11 @@ public final class OcclusionRulesTest {
     }
 
     static OcclusionSnapshot snapshot(List<OcclusionSnapshot.Fading> walls) {
+        return snapshot(walls, List.of());
+    }
+
+    static OcclusionSnapshot snapshot(List<OcclusionSnapshot.Fading> walls,
+                                      List<RoofBounds> roofs) {
         return new OcclusionSnapshot(
                 0,
                 0,
@@ -32,7 +37,7 @@ public final class OcclusionRulesTest {
                                                                                 n.amount() > 0
                                                                                         && n.wall().equals(candidate))))
                         .toList(),
-                List.of(),
+                roofs,
                 List.of(),
                 new OpeningFade.Capture(List.of(), Map.of()),
                 new TreeClearing.Selection(0, 0, 0, 0, 0, new float[0], Map.of()),
@@ -48,7 +53,7 @@ public final class OcclusionRulesTest {
                 0,
                 0,
                 0,
-                null);
+                null, false);
     }
 
     static void check(String name, List<OcclusionSnapshot.Fading> walls, int... expected) {
@@ -120,7 +125,7 @@ public final class OcclusionRulesTest {
                         0,
                         0,
                         0,
-                        null);
+                        null, false);
         var packed = OcclusionRules.forSnapshot(first);
         int offset = (packed.walls() + 1) * 4;
         if (packed.values()[offset + 1] != 0 || packed.values()[offset + 2] != 1) {
@@ -152,11 +157,29 @@ public final class OcclusionRulesTest {
                         0,
                         0,
                         0,
-                        null);
+                        null, false);
         var repacked = OcclusionRules.forSnapshot(second);
         if (repacked == packed || repacked.values()[offset + 2] != 0) {
             throw new AssertionError("Topology-only change did not invalidate packing");
         }
         System.out.println("PASS unselected neighbor and topology-only cache invalidation");
+        var hiddenRoof = new RoofBounds(0, 0, 2, 1, 1, 3, 0, 0, 1, 1, 7);
+        var keptRoof = hiddenRoof.withHidden(false);
+        var hiddenData = OcclusionRules.forSnapshot(snapshot(List.of(), List.of(hiddenRoof)));
+        int decisionOffset = (hiddenData.walls() + 3) * 4;
+        if (hiddenData.values()[decisionOffset] != 1) {
+            throw new AssertionError("Hidden roof decision missing from GPU rules");
+        }
+        var keptData = OcclusionRules.forSnapshot(snapshot(List.of(), List.of(keptRoof)));
+        if (keptData == hiddenData || keptData.values()[decisionOffset] != 0) {
+            throw new AssertionError("Keeping the same roof did not invalidate GPU rules");
+        }
+        var modelRoof = RoofBounds.model(new RoofSelection.Box(0, 0, 2, 1, 1, 3), 42, true);
+        var modelData = OcclusionRules.forSnapshot(snapshot(List.of(), List.of(modelRoof)));
+        if (modelData.values()[(modelData.walls() + 1) * 4] != -44
+                || modelData.values()[decisionOffset] != 1) {
+            throw new AssertionError("Packed roof identity or hide decision missing from GPU rules");
+        }
+        System.out.println("PASS roof hide/keep decisions, cache invalidation and packed-model identities");
     }
 }

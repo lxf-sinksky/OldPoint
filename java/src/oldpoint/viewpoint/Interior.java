@@ -40,7 +40,8 @@ public final class Interior {
         RoofModels.clear();
         OpeningFade.clear();
         ObjectFade.clear();
-        RoofEdges.clear();
+        RoofCutaway.clear();
+        RayPlane.clear();
         RoomWallOcclusion.clear();
         RoomBoundary.clear();
         BuiltUpperFloors.clear();
@@ -77,6 +78,11 @@ public final class Interior {
             List<Layout.Rect> targets = visibleRooms.targets();
             int floor = (int) Math.floor(player.getZ());
             ArrayList<Layout.Rect> upper = new ArrayList<>(rooms);
+            HashSet<zombie.iso.BuildingDef> roofBuildings = new HashSet<>();
+            var currentBuilding = player.getCurrentSquare() == null ? null : player.getCurrentSquare().getBuilding();
+            if (!occupiedRoom.isEmpty() && currentBuilding != null && currentBuilding.getDef() != null) {
+                roofBuildings.add(currentBuilding.getDef());
+            }
             boolean nativeMode = false;
             if (player instanceof zombie.characters.IsoPlayer local
                     && player.getCurrentSquare() != null
@@ -123,6 +129,7 @@ public final class Interior {
             if (outdoor != null) {
                 upper.clear();
                 upper.addAll(outdoor.upper());
+                roofBuildings.addAll(outdoor.buildings());
             }
             int foreignUpperCount = 0;
             if (!occupiedRoom.isEmpty() && player instanceof zombie.characters.IsoPlayer local) {
@@ -132,6 +139,7 @@ public final class Interior {
                 var own = player.getCurrentSquare().getBuilding();
                 ArrayList<Layout.Rect> selected = new ArrayList<>();
                 for (var b : neighbours.buildings()) {
+                    roofBuildings.add(b);
                     if (own != null && b == own.getDef()) {
                         continue;
                     }
@@ -198,11 +206,13 @@ public final class Interior {
                 upper.clear();
             }
             // Self-built rooms may have no map RoomDef/BuildingDef at all.
-            upper.addAll(BuiltUpperFloors.capture(player));
+            var builtCovers = BuiltUpperFloors.capture(player);
+            upper.addAll(builtCovers);
             int roofTop = floor + 1;
             for (int i = 0; i < frame.scene.meshCount; i++) {
                 roofTop = Math.max(roofTop, frame.scene.meshes[i].level);
             }
+            var roofResult = RoofCutaway.capture(player, upper, roofBuildings, roofTop);
             OcclusionSnapshot state =
                     new OcclusionSnapshot(
                             frame.scene.originX,
@@ -213,7 +223,7 @@ public final class Interior {
                             nativeMode,
                             outdoor != null,
                             List.copyOf(walls),
-                            RoofEdges.capture(player, upper, roofTop, outdoor),
+                            roofResult.rules(),
                             boundary,
                             openings,
                             TreeClearing.selection(frame.scene),
@@ -229,7 +239,8 @@ public final class Interior {
                             ex,
                             ey,
                             ez,
-                            NearbyFade.area(player.getX(), player.getY(), sight.cx(), sight.cy()));
+                            NearbyFade.area(player.getX(), player.getY(), sight.cx(), sight.cy()),
+                            RoofCutaway.preview());
             snapshots.put(frame.scene, state);
             latest = state;
             int roomKey = occupiedRoom.hashCode() * 31 + floor;
@@ -257,7 +268,7 @@ public final class Interior {
                                 + ","
                                 + (ez + frame.scene.originZ));
             }
-            RoofModels.capture(frame, player, upper, outdoor);
+            RoofModels.capture(frame, state.roofPreview() ? List.of() : roofResult.models());
             InteriorCost.record(
                     !occupiedRoom.isEmpty(), costStart, costNative, costSelection, costOpenings, System.nanoTime());
         } finally {
@@ -398,6 +409,10 @@ public final class Interior {
 
     static OcclusionSnapshot snapshot(SceneData scene) {
         return snapshots.get(scene);
+    }
+
+    static OcclusionSnapshot latestSnapshot() {
+        return latest;
     }
 
     static void report(Throwable error) {

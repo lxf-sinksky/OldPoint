@@ -13,7 +13,7 @@ import zombie.iso.Vector2;
 @Exposer.LuaClass(name = "OldPointBridge")
 public final class Bridge {
     static {
-        System.out.println("[OldPoint] loaded build 0.6.151: selected-wall decoration hiding");
+        System.out.println("[OldPoint] loaded build 0.6.160: building-wide roof cutaways and retained debug tools");
     }
 
     private Bridge() {}
@@ -86,6 +86,35 @@ public final class Bridge {
 
     public static boolean settingsChanged() {
         return SettingsMirror.changed();
+    }
+
+    public static void configureRoofDebug(boolean enabled) {
+        RoofCutaway.debug(enabled);
+    }
+
+    public static void drawRoofDebug(String title, String waiting) {
+        RoofCutaway.draw(title, waiting);
+    }
+
+    public static void configureRayProbe(boolean enabled) {
+        RayProbe.configure(enabled);
+    }
+
+    public static void drawRayProbe(se.krka.kahlua.vm.KahluaTable labels) {
+        RayProbe.draw(labels);
+    }
+
+    public static void sampleRayPlane(Object frame, int framebuffer, Object inverse) {
+        RayPlane.capture((viewpoint.render.FrameContext) frame, framebuffer, (org.joml.Matrix4f) inverse);
+    }
+
+    @Patch(className = "viewpoint.render.MousePick", methodName = "read", strictMatch = true)
+    public static final class RayPlanePatch {
+        @Patch.OnEnter
+        public static void enter(@Patch.Argument(0) Object frame, @Patch.Argument(1) int framebuffer,
+                                 @Patch.Argument(2) Object inverse) {
+            Bridge.sampleRayPlane(frame, framebuffer, inverse);
+        }
     }
 
     public static void setQolWheelRouting(boolean value) {

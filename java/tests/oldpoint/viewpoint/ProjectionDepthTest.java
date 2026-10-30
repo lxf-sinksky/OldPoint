@@ -83,7 +83,10 @@ public final class ProjectionDepthTest {
         inline("IrisCameraPatch", "viewpoint.render.IrisUniforms", "camera");
         inline("UpscalePatch", "viewpoint.render.VendorInputs", "describe");
         inline("Bridge$SettingsTabsPatch", "viewpoint.platform.SettingsPages", "body");
-        System.out.println("PASS: all 6 production patches inline into the actual installed Viewpoint methods");
+        inline("Bridge$RayPlanePatch", "viewpoint.render.MousePick", "read");
+        inline("GeneratedRoofs$RoofPatch", "viewpoint.world.RoofCook", "vertices");
+        inline("GeneratedRoofs$GablePatch", "viewpoint.world.RoofGables", "vertices");
+        System.out.println("PASS: all 9 production patches inline into the actual installed Viewpoint methods");
     }
 
     private static double depthGap(Matrix4f projection) {
@@ -143,7 +146,7 @@ public final class ProjectionDepthTest {
     }
 
     private static void inline(String suffix, String targetName, String method) throws Exception {
-        String name = suffix.startsWith("Bridge$")
+        String name = suffix.contains("$")
                 ? "oldpoint.viewpoint." + suffix : "oldpoint.viewpoint.ProjectionDepth$" + suffix;
         byte[] source;
         try (var in = ProjectionDepthTest.class.getClassLoader().getResourceAsStream(name.replace('.', '/') + ".class")) {

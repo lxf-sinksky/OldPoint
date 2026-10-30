@@ -124,6 +124,7 @@ final class OrbitInput {
     static void beforeUpdate(boolean dragging) { }
     static void reset() { }
     static float read(float yaw, boolean dragging) { return yaw + (dragging ? delta : 0); }
+    static float keyTurnRate() { return 1; }
 }
 final class TreeClearing { static void clear() { } }
 final class VisionFade { static void clear() { } }
