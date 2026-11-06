@@ -112,7 +112,8 @@ public final class ProjectionDepth {
         }
         return new UpscaleFrame(original.jitterX(), original.jitterY(), original.motionScaleX(),
                 original.motionScaleY(), original.reset(), original.frameMs(), near, original.far(),
-                original.fovY(), original.metresPerUnit(), original.matrices(), original.camera());
+                original.fovY(), original.metresPerUnit(), original.sharpness(),
+                original.matrices(), original.camera());
     }
 
     @Patch(className = "viewpoint.render.FrameContext", methodName = "camera", strictMatch = true)

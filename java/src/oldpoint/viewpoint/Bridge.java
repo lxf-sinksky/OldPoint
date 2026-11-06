@@ -720,6 +720,7 @@ public final class Bridge {
         @Patch.OnExit(onThrowable = Throwable.class)
         public static void exit() {
             Bridge.endDrawing();
+            Rc2OrbitInterpolation.end();
         }
     }
 
@@ -727,7 +728,7 @@ public final class Bridge {
     public static final class CenterViewPatch {
         @Patch.OnEnter(skipOn = true)
         public static boolean enter(@Patch.This Object drawer) {
-            return Bridge.centerDrawing(drawer);
+            return Rc2CameraInterpolation.centerDrawing(drawer);
         }
     }
 
@@ -813,24 +814,26 @@ public final class Bridge {
     @Patch(className = "viewpoint.input.Camera", methodName = "direction", strictMatch = false)
     public static final class DirectionPatch {
         @Patch.OnEnter(skipOn = true)
-        public static boolean enter(@Patch.Argument(2) float[] result) {
-            return Bridge.direction(result);
+        public static boolean enter(@Patch.AllArguments Object[] arguments) {
+            return !Rc2HandCamera.active() && Rc2OrbitInterpolation.direction((float[]) arguments[2]);
         }
     }
 
     @Patch(className = "viewpoint.input.Camera", methodName = "eye", strictMatch = false)
     public static final class EyePatch {
         @Patch.OnEnter(skipOn = true)
-        public static boolean enter(@Patch.Argument(0) Object frame, @Patch.Argument(2) float[] result) {
-            return Bridge.position(frame, result);
+        public static boolean enter(@Patch.AllArguments Object[] arguments) {
+            return !Rc2HandCamera.active()
+                    && Rc2OrbitInterpolation.position(arguments[0], (float[]) arguments[2]);
         }
     }
 
     @Patch(className = "viewpoint.camera.CameraView", methodName = "place", strictMatch = false)
     public static final class CameraPatch {
         @Patch.OnEnter(skipOn = true)
-        public static boolean enter(@Patch.Argument(0) Object frame, @Patch.Argument(3) float[] eye) {
-            return Bridge.position(frame, eye);
+        public static boolean enter(@Patch.AllArguments Object[] arguments) {
+            return Rc2OrbitInterpolation.position(
+                    arguments[0], (float[]) arguments[arguments.length - 1]);
         }
 
         @Patch.OnExit

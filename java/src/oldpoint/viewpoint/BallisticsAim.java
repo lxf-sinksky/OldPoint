@@ -174,7 +174,7 @@ public final class BallisticsAim {
     @Patch(
             className = "zombie.core.physics.BallisticsController",
             methodName = "setIsoGameCharacter",
-            strictMatch = true)
+            strictMatch = false)
     public static final class OwnerPatch {
         @Patch.OnEnter
         public static void enter(@Patch.This Object controller) {

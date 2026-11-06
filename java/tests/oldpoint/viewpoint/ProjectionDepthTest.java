@@ -57,11 +57,12 @@ public final class ProjectionDepthTest {
         float[] matrices = new float[64];
         float[] camera = new float[12];
         UpscaleFrame nativeInput = new UpscaleFrame(0.2f, -0.1f, 2560, 1440, true, 16, 0.05f, 400,
-                Layout.FOV, 1.2247449f, matrices, camera);
+                Layout.FOV, 1.2247449f, 0.5f, matrices, camera);
         UpscaleFrame input = ProjectionDepth.upscale(context, nativeInput);
         close(input.near(), 2.0f, 0);
         if (input.matrices() != matrices || input.camera() != camera || input.reset() != nativeInput.reset()
-                || input.fovY() != nativeInput.fovY() || input.jitterX() != nativeInput.jitterX()) {
+                || input.fovY() != nativeInput.fovY() || input.jitterX() != nativeInput.jitterX()
+                || input.sharpness() != nativeInput.sharpness()) {
             throw new AssertionError("Upscaler metadata changed beyond near plane");
         }
         iris(context);

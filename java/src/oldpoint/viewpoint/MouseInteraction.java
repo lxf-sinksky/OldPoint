@@ -31,7 +31,7 @@ public final class MouseInteraction {
         }
         Field ray = field(Class.forName("viewpoint.interact.LootTargets"), "ray");
         objectField = field(Class.forName("viewpoint.interact.LootTargets$Target"), "object");
-        enabledField = field(Class.forName("viewpoint.interact.LootMenu"), "enabled");
+        enabledField = field(Class.forName("viewpoint.interact.LootMenu"), "ON");
         rayField = ray;
     }
 
@@ -75,7 +75,7 @@ public final class MouseInteraction {
         }
         try {
             initialize();
-            return enabledField.getBoolean(null) && Pointer.hasProjection() ? player : null;
+            return Rc2LootSetting.enabled(enabledField, null) && Pointer.hasProjection() ? player : null;
         } catch (ReflectiveOperationException | RuntimeException e) {
             fail(e);
             return null;

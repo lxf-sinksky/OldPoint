@@ -40,7 +40,7 @@ final class CameraCapture {
             Interior.reset(frame.scene);
             cameraStates.put(frame, NORMAL);
 
-            return false;
+            return Rc2OrbitInterpolation.capture(false, frame);
         }
         IsoGameCharacter player = (IsoGameCharacter) character;
         float orbitYaw = CameraController.captureYaw();
@@ -89,6 +89,7 @@ final class CameraCapture {
         // 0.1.6 stores camera effects in each frame instead of global offsets.
         // Clear the reused shot so shoulder sway, recoil and roll cannot leak in.
         frame.cameraShot.clear();
+        Rc2CameraInterpolation.capture(frame);
         frame.cameraShot.on = true;
         frame.cameraShot.seated = player.getVehicle() != null;
         frame.cameraShot.fovY = Layout.FOV;
@@ -120,7 +121,7 @@ final class CameraCapture {
             VisionSystem.capture(frame, local);
         }
         CameraController.syncCursor();
-        return true;
+        return Rc2OrbitInterpolation.capture(true, frame);
     }
 
     /** Read the latest published snapshot without advancing camera rotation or touching frame state. */

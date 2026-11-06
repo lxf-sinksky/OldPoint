@@ -199,7 +199,7 @@ public final class CutawayData {
         }
     }
 
-    @Patch(className = "viewpoint.platform.GlProgram", methodName = "adopt", strictMatch = true)
+    @Patch(className = "viewpoint.platform.GlProgram", methodName = "adopt", strictMatch = false)
     public static final class RelinkPatch {
         @Patch.OnExit
         public static void exit(@Patch.This GlProgram program) {

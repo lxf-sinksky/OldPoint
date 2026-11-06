@@ -29,7 +29,8 @@ public final class TreeCards {
             return null;
         }
         if (path.equals("lib/mesh_vertex.glsl") && !source.contains("bool oldPointSelectedTree")) {
-            return source.replace("MeshVertex meshVertex(vec3 eye) {", DATA + "\nMeshVertex meshVertex(vec3 eye) {")
+            return source.replace("MeshVertex meshVertex(vec3 eye, vec3 viewer) {",
+                            DATA + "\nMeshVertex meshVertex(vec3 eye, vec3 viewer) {")
                     .replace(
                             "v.local = vec3(-v.pos.x, v.pos.y - v.mesh.w, -v.pos.z);",
                             "if (uPlants!=0 && (v.flags & FLAG_GRASS)==0 && oldPointSelectedTree(foot+v.mesh.xyz)) v.hidden=true;\n  v.local = vec3(-v.pos.x, v.pos.y - v.mesh.w, -v.pos.z);");

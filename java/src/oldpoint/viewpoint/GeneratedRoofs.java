@@ -48,7 +48,7 @@ public final class GeneratedRoofs {
         }
     }
 
-    @Patch(className = "viewpoint.world.RoofCook", methodName = "vertices", strictMatch = true)
+    @Patch(className = "viewpoint.world.RoofCook", methodName = "vertices", strictMatch = false)
     public static final class RoofPatch {
         @Patch.OnExit
         public static void exit(@Patch.Return float[] vertices) {
@@ -56,7 +56,7 @@ public final class GeneratedRoofs {
         }
     }
 
-    @Patch(className = "viewpoint.world.RoofGables", methodName = "vertices", strictMatch = true)
+    @Patch(className = "viewpoint.world.RoofGables", methodName = "vertices", strictMatch = false)
     public static final class GablePatch {
         @Patch.OnExit
         public static void exit(@Patch.Return float[] vertices) {

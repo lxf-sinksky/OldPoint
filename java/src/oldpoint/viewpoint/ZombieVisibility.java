@@ -84,9 +84,8 @@ public final class ZombieVisibility {
         @Patch.OnExit
         public static void exit(
                 @Patch.Argument(0) IsoMovingObject object,
-                @Patch.Argument(1) IsoPlayer player,
                 @Patch.Return(readOnly = false) boolean result) {
-            result = ZombieVisibility.wanted(object, player, result);
+            result = ZombieVisibility.wanted(object, IsoPlayer.players[0], result);
         }
     }
 }
