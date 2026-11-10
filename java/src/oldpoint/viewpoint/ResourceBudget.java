@@ -2,8 +2,9 @@ package oldpoint.viewpoint;
 
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import me.zed_0xff.zombie_buddy.Patch;
-import viewpoint.platform.Pool;
 
 /** Hardware-based ceilings over Viewpoint's existing eviction/allocation budgets. */
 public final class ResourceBudget {
@@ -23,6 +24,8 @@ public final class ResourceBudget {
     private static volatile int pressureLevel; // 0 normal, 1 low headroom, 2 critical
     private static volatile long freePhysical = -1, commitHeadroom = -1;
     private static volatile Object maxCooking, cookThreads;
+    private static volatile Map<Object, Integer> poolIndices;
+    private static volatile boolean poolIndicesFailed;
     private static boolean buildFieldsFailed;
     private static long nextPoll;
     private static long nextReport;
@@ -165,45 +168,42 @@ public final class ResourceBudget {
         }
     }
 
-    public static long cap(Pool pool, long original) {
+    public static long cap(Object pool, long original) {
         // Iris buffers are required by the shader pack; checkPool throws on overflow rather than
         // evicting.
-        if (pool == Pool.IRIS) {
-            return original;
-        }
         int tier = effectiveProfile();
-        if (tier < 0) {
+        if (tier < 0 || pool == null) {
             return original;
         }
-        int index =
-                pool == Pool.NEAR_MESHES
-                        ? 0
-                        : pool == Pool.LIGHT_GRIDS
-                                ? 1
-                                : pool == Pool.SHELL
-                                        ? 2
-                                        : pool == Pool.FAR
-                                                ? 3
-                                                : pool == Pool.RELIEF
-                                                        ? 4
-                                                        : pool == Pool.MODEL_MESHES
-                                                                ? 5
-                                                                : pool == Pool.CPU
-                                                                        ? 6
-                                                                        : pool == Pool.FLOORS
-                                                                                ? 7
-                                                                                : pool == Pool.PACKS
-                                                                                        ? 8
-                                                                                        : pool == Pool.IRIS
-                                                                                                ? 9
-                                                                                                : pool == Pool.CORPSES
-                                                                                                        ? 10
-                                                                                                        : pool
-                                                                                                                        == Pool
-                                                                                                                                .SOUNDS
-                                                                                                                ? 11
-                                                                                                                : -1;
-        return index < 0 ? original : Math.min(original, LIMITS[tier][index] * MIB);
+        Map<Object, Integer> indices = poolIndices;
+        if (indices == null) {
+            indices = resolvePoolIndices(pool);
+        }
+        Integer index = indices.get(pool);
+        return index == null || index == 9 ? original : Math.min(original, LIMITS[tier][index] * MIB);
+    }
+
+    private static synchronized Map<Object, Integer> resolvePoolIndices(Object pool) {
+        if (poolIndices != null) {
+            return poolIndices;
+        }
+        IdentityHashMap<Object, Integer> indices = new IdentityHashMap<>();
+        if (!poolIndicesFailed) {
+            String[] names = {"NEAR_MESHES", "LIGHT_GRIDS", "SHELL", "FAR", "RELIEF", "MODEL_MESHES",
+                    "CPU", "FLOORS", "PACKS", "IRIS", "CORPSES", "SOUNDS"};
+            try {
+                Class<?> type = pool.getClass();
+                for (int index = 0; index < names.length; index++) {
+                    indices.put(type.getField(names[index]).get(null), index);
+                }
+            } catch (ReflectiveOperationException | RuntimeException error) {
+                indices.clear();
+                poolIndicesFailed = true;
+                System.out.println("[OldPoint] pool budget unavailable: " + error);
+            }
+        }
+        poolIndices = indices;
+        return indices;
     }
 
     public static int texels(int original) {
@@ -253,7 +253,7 @@ public final class ResourceBudget {
     @Patch(className = "viewpoint.platform.Pool", methodName = "cap", strictMatch = true)
     public static final class PoolPatch {
         @Patch.OnExit
-        public static void exit(@Patch.This Pool pool, @Patch.Return(readOnly = false) long result) {
+        public static void exit(@Patch.This Object pool, @Patch.Return(readOnly = false) long result) {
             result = ResourceBudget.cap(pool, result);
         }
     }
