@@ -177,15 +177,23 @@ public final class CutawayData {
         }
     }
 
+    public static void samplerChanged(Object program, String name, int value) {
+        samplerChanged((GlProgram) program, name, value);
+    }
+
     public static void invalidateSamplers(GlProgram program) {
         samplers.remove(program);
+    }
+
+    public static void invalidateSamplers(Object program) {
+        invalidateSamplers((GlProgram) program);
     }
 
     @Patch(className = "viewpoint.platform.GlProgram", methodName = "setInt", strictMatch = true)
     public static final class IntegerPatch {
         @Patch.OnExit
         public static void exit(
-                @Patch.This GlProgram program, @Patch.Argument(0) String name, @Patch.Argument(1) int value) {
+                @Patch.This Object program, @Patch.Argument(0) String name, @Patch.Argument(1) int value) {
             CutawayData.samplerChanged(program, name, value);
         }
     }
@@ -194,7 +202,7 @@ public final class CutawayData {
     public static final class SamplerPatch {
         @Patch.OnExit
         public static void exit(
-                @Patch.This GlProgram program, @Patch.Argument(0) String name, @Patch.Argument(1) int value) {
+                @Patch.This Object program, @Patch.Argument(0) String name, @Patch.Argument(1) int value) {
             CutawayData.samplerChanged(program, name, value);
         }
     }
@@ -202,7 +210,7 @@ public final class CutawayData {
     @Patch(className = "viewpoint.platform.GlProgram", methodName = "adopt", strictMatch = false)
     public static final class RelinkPatch {
         @Patch.OnExit
-        public static void exit(@Patch.This GlProgram program) {
+        public static void exit(@Patch.This Object program) {
             CutawayData.invalidateSamplers(program);
         }
     }
@@ -210,7 +218,7 @@ public final class CutawayData {
     @Patch(className = "viewpoint.platform.GlProgram", methodName = "delete", strictMatch = true)
     public static final class DeletePatch {
         @Patch.OnExit
-        public static void exit(@Patch.This GlProgram program) {
+        public static void exit(@Patch.This Object program) {
             CutawayData.invalidateSamplers(program);
         }
     }

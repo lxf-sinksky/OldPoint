@@ -55,6 +55,10 @@ public final class ProjectionDepth {
         }
     }
 
+    public static void cameraUniforms(Object program, Object frame) {
+        cameraUniforms((GlProgram) program, (FrameContext) frame);
+    }
+
     private static void irisAccess(Object uniforms) throws ReflectiveOperationException {
         if (irisProjection == null) {
             Class<?> type = uniforms.getClass();
@@ -119,7 +123,7 @@ public final class ProjectionDepth {
     @Patch(className = "viewpoint.render.FrameContext", methodName = "camera", strictMatch = true)
     public static final class CameraPatch {
         @Patch.OnExit
-        public static void exit(@Patch.This FrameContext frame, @Patch.Argument(0) GlProgram program) {
+        public static void exit(@Patch.This Object frame, @Patch.Argument(0) Object program) {
             ProjectionDepth.cameraUniforms(program, frame);
         }
     }
