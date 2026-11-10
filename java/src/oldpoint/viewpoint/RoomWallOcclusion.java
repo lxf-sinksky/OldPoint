@@ -194,7 +194,7 @@ final class RoomWallOcclusion {
                         var target = cell.getGridSquare(tx, ty, floor);
                         if (target != null
                                 && target.getRoom() != null
-                                && !target.getObjects().isEmpty()
+                                && !SquareObjects.isEmpty(SquareObjects.of(target))
                                 && target.isCouldSee(playerIndex)) {
                             occluded.add(target.getRoomID());
                         }

@@ -39,7 +39,7 @@ function Invoke-JavaTest {
 
 # Compile only the suites being run, into one isolated test output directory.
 $tests = @()
-if ($selected -contains 'Hooks') { $tests += 'HookInliningTest', 'ProjectionDepthTest' }
+if ($selected -contains 'Hooks') { $tests += 'HookInliningTest', 'ProjectionDepthTest', 'SquareObjectsTest' }
 if ($selected -contains 'Occlusion') { $tests += 'OcclusionRulesTest', 'CutawayGeometryTest', 'CutawayProjectionTest' }
 if ($selected -contains 'Reference') { $tests += 'NativeWallContour', 'NativeWallContourTest', 'CutawayProjectionTest' }
 $testOut = Join-Path $repo 'java\build\suite-tests'
@@ -69,6 +69,7 @@ if ($selected -contains 'Occlusion') {
 if ($selected -contains 'Hooks') {
     Invoke-JavaTest 'HookInliningTest'
     Invoke-JavaTest 'ProjectionDepthTest'
+    Invoke-JavaTest 'SquareObjectsTest'
 }
 if ($selected -contains 'Reference') {
     Invoke-JavaTest 'NativeWallContourTest'

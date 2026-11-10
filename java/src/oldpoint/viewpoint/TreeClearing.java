@@ -114,10 +114,9 @@ public final class TreeClearing {
                     continue;
                 }
                 boolean tree = false;
-                // PZArrayList deliberately does not implement iterator().
-                var objects = square.getObjects();
-                for (int i = 0, count = objects.size(); i < count; i++) {
-                    if (objects.get(i) instanceof IsoTree) {
+                Object objects = SquareObjects.of(square);
+                for (int i = 0, count = SquareObjects.size(objects); i < count; i++) {
+                    if (SquareObjects.get(objects, i) instanceof IsoTree) {
                         tree = true;
                         break;
                     }

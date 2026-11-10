@@ -179,12 +179,12 @@ public final class RoofModels {
             if (outdoor != null && !outdoor.buildings().isEmpty() && !outdoor.roofOwner(square, x, y)) {
                 continue;
             }
-            var objects = square.getObjects();
-            for (int i = scan.objectIndex; i < objects.size(); i++) {
+            Object objects = SquareObjects.of(square);
+            for (int i = scan.objectIndex, count = SquareObjects.size(objects); i < count; i++) {
                 if (!scan.allowObject(i)) {
                     break;
                 }
-                var object = objects.get(i);
+                var object = SquareObjects.get(objects, i);
                 var sprite = object.getSprite();
                 if (sprite == null) {
                     continue;

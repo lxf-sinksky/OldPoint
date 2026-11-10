@@ -11,6 +11,7 @@
 | Camera | ZoomLimitsTest | 原版最近缩放换算、滚轮范围与视距记忆恢复 |
 | Hooks | HookInliningTest | 实际生产回调通过 ByteBuddy 内联到外部包后可以执行 |
 | Hooks | ProjectionDepthTest | 投影与逆投影、Iris 和超分辨率参数、普通帧隔离及五个 Viewpoint 挂接入口 |
+| Hooks | SquareObjectsTest | 42.22 的 `List` 签名和旧式索引列表都能读取，避免直接绑定变化的返回类型 |
 | Occlusion | CutawaySelectionTest | 模拟世界中执行生产室内外选择，检查前后墙、目标与建筑选择 |
 | Occlusion | WallTopologyCaptureTest / WallContourTest | 实体邻墙、对象身份、两端轮廓、组合面、语义隔离和容量 |
 | Occlusion | ObjectFadeTest | 同对象各表示共享透明度、缓存推进、恢复、快照和上下文隔离 |

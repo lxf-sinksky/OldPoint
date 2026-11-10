@@ -81,8 +81,9 @@ public final class PickTargets {
                 if (square == null) {
                     continue;
                 }
-                for (int i = 0; i < square.getObjects().size(); i++) {
-                    IsoObject object = square.getObjects().get(i);
+                Object objects = SquareObjects.of(square);
+                for (int i = 0, count = SquareObjects.size(objects); i < count; i++) {
+                    IsoObject object = SquareObjects.get(objects, i);
                     if (!hasTileGeometry(object)) {
                         continue;
                     }
@@ -172,10 +173,9 @@ public final class PickTargets {
                 if (square == null) {
                     continue;
                 }
-                var objects = square.getObjects();
-                // PZArrayList deliberately throws from iterator(); use indexed access.
-                for (int i = 0; i < objects.size(); i++) {
-                    IsoObject object = objects.get(i);
+                Object objects = SquareObjects.of(square);
+                for (int i = 0, count = SquareObjects.size(objects); i < count; i++) {
+                    IsoObject object = SquareObjects.get(objects, i);
                     if (!(object instanceof IsoLightSwitch) && !(object instanceof IsoDoor)) {
                         continue;
                     }
