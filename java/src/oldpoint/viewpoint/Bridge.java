@@ -13,7 +13,7 @@ import zombie.iso.Vector2;
 @Exposer.LuaClass(name = "OldPointBridge")
 public final class Bridge {
     static {
-        System.out.println("[OldPoint] loaded build 0.6.151: selected-wall decoration hiding");
+        System.out.println("[OldPoint] loaded build 0.6.154: Viewpoint nightly 0.1.7-rc2, game 42.22");
     }
 
     private Bridge() {}
