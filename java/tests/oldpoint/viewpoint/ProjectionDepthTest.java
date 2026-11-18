@@ -2,6 +2,9 @@ package oldpoint.viewpoint;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.asm.Advice;
@@ -18,9 +21,13 @@ import org.joml.Matrix4d;
 import org.joml.Vector3f;
 import org.joml.Vector4d;
 import viewpoint.core.Frame;
+import viewpoint.platform.VertexFormat;
 import viewpoint.render.FrameContext;
 import viewpoint.render.WorldRenderer;
 import viewpoint.upscale.UpscaleFrame;
+import zombie.core.TilePropertyAliasMap;
+import zombie.core.properties.IsoPropertyType;
+import zombie.iso.sprite.IsoSprite;
 
 /** Real JOML and Viewpoint data classes; no GL context. Checks projection/reconstruction consistency. */
 public final class ProjectionDepthTest {
@@ -84,7 +91,39 @@ public final class ProjectionDepthTest {
         inline("IrisCameraPatch", "viewpoint.render.IrisUniforms", "camera");
         inline("UpscalePatch", "viewpoint.render.VendorInputs", "describe");
         inline("Bridge$SettingsTabsPatch", "viewpoint.platform.SettingsPages", "body");
-        System.out.println("PASS: all 6 production patches inline into the actual installed Viewpoint methods");
+        floorOverlay();
+        inline("FloorOverlayDepth$PackPlacementPatch", "viewpoint.world.PackGather", "place");
+        System.out.println("PASS: all 7 production patches inline into the actual installed Viewpoint methods");
+    }
+
+    private static void floorOverlay() throws Exception {
+        var properties = new HashMap<String, ArrayList<String>>();
+        properties.put(IsoPropertyType.MOVE_TYPE.getName(), new ArrayList<>(List.of("FloorTile", "FloorRug")));
+        TilePropertyAliasMap.instance.Generate(properties);
+
+        Class<?> type = Class.forName("viewpoint.world.Recipe$Op");
+        var constructor = type.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        var flags = type.getDeclaredField("flags");
+        flags.setAccessible(true);
+
+        Object placement = constructor.newInstance();
+        int original = VertexFormat.SINGLE_SIDED;
+        flags.setInt(placement, original);
+        IsoSprite carpet = new IsoSprite();
+        carpet.getProperties().set(IsoPropertyType.MOVE_TYPE, "FloorTile");
+        FloorOverlayDepth.PackPlacementPatch.exit(carpet, placement);
+        if (flags.getInt(placement) != original) {
+            throw new AssertionError("Base carpet must retain its original depth");
+        }
+
+        IsoSprite rug = new IsoSprite();
+        rug.getProperties().set(IsoPropertyType.MOVE_TYPE, "FloorRug");
+        FloorOverlayDepth.PackPlacementPatch.exit(rug, placement);
+        if (flags.getInt(placement) != (original | VertexFormat.DECAL)) {
+            throw new AssertionError("Packed rug must use the native decal depth and keep its other flags");
+        }
+        System.out.println("PASS: packed rugs use decal depth, base carpets keep their original depth");
     }
 
     private static double depthGap(Matrix4f projection) {
@@ -144,7 +183,7 @@ public final class ProjectionDepthTest {
     }
 
     private static void inline(String suffix, String targetName, String method) throws Exception {
-        String name = suffix.startsWith("Bridge$")
+        String name = suffix.contains("$")
                 ? "oldpoint.viewpoint." + suffix : "oldpoint.viewpoint.ProjectionDepth$" + suffix;
         byte[] source;
         try (var in = ProjectionDepthTest.class.getClassLoader().getResourceAsStream(name.replace('.', '/') + ".class")) {
