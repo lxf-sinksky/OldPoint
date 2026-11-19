@@ -37,7 +37,9 @@ public final class OverheadWeather {
             String signature = "float distanceShare(vec3 pos, float d, float fogDepth, vec2 fogRange, vec2 haze) {";
             if (!source.contains("d = distance(pos, uOPWeatherPlayer)")) {
                 source =
-                        source.replace(
+                        swap(
+                                path,
+                                source,
                                 signature,
                                 signature
                                         + """
@@ -52,11 +54,120 @@ public final class OverheadWeather {
                 reportedFog = true;
                 System.out.println("[OldPoint] overhead weather: player-centered fog attached");
             }
-        } else if (path.equals("forward.frag")) {
+        }
+        boolean packDistance = path.equals("lib/distance.glsl") && source.contains("mistOpen(uEye, pos)");
+        if (packDistance && !source.contains("oldPointEye(")) {
+            // Default/Somber packs: their own distance fog and ground mist are traced from the camera.
+            // Start them on the plane through the player, like the air passes; keep fog range measured from the player.
             source =
-                    source.replace(
-                            "fogAt(vDistance, uFogRange)",
-                            "fogAt(uOPWeatherActive > 0.5 ? distance(vPos, uOPWeatherPlayer) : vDistance, uFogRange)");
+                    swap(
+                            path,
+                            source,
+                            "vec3 airThrough(float d) {",
+                            """
+                    vec3 oldPointEye(vec3 pos) {
+                      if (uOPWeatherActive < 0.5) return uEye;
+                      vec3 ray = pos - uEye;
+                      float len = length(ray);
+                      vec3 dir = ray / max(len, 1.0e-4);
+                      return uEye + dir * min(oldPointAirStart(uEye, dir), len);
+                    }
+
+                    vec3 airThrough(float d) {""");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "  vec3 view = (pos - uEye) / max(d, 1.0e-4);\n"
+                                    + "  float air = dot(airThrough(d), vec3(0.2126, 0.7152, 0.0722));\n"
+                                    + "  float mist = exp(-mistDepth(mistHeight(uEye.y), view.y, d)"
+                                    + " * mistOpen(uEye, pos));",
+                            "  vec3 opEye = oldPointEye(pos);\n"
+                                    + "  float opD = uOPWeatherActive > 0.5 ? distance(pos, opEye) : d;\n"
+                                    + "  vec3 view = (pos - uEye)"
+                                    + " / max(uOPWeatherActive > 0.5 ? distance(pos, uEye) : d, 1.0e-4);\n"
+                                    + "  float air = dot(airThrough(opD), vec3(0.2126, 0.7152, 0.0722));\n"
+                                    + "  float mist = exp(-mistDepth(mistHeight(opEye.y), view.y, opD)"
+                                    + " * mistOpen(opEye, pos));");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "  float h0 = mistHeight(uEye.y);\n"
+                                    + "  vec3 air = airThrough(d);\n"
+                                    + "  float mist = exp(-mistDepth(h0, view.y, d) * mistOpen(uEye, pos));",
+                            "  vec3 opEye = oldPointEye(pos);\n"
+                                    + "  if (uOPWeatherActive > 0.5) {\n"
+                                    + "    fogDepth = distance(pos, uOPWeatherPlayer);\n"
+                                    + "    d = distance(pos, opEye);\n"
+                                    + "  }\n"
+                                    + "  float h0 = mistHeight(opEye.y);\n"
+                                    + "  vec3 air = airThrough(d);\n"
+                                    + "  float mist = exp(-mistDepth(h0, view.y, d) * mistOpen(opEye, pos));");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "mistedBeyond(fogColor(horizon, view), view, mistHeight(uEye.y), uSkySun)",
+                            "mistedBeyond(fogColor(horizon, view), view,"
+                                    + " mistHeight(uOPWeatherActive > 0.5 ? uOPWeatherPlayer.y : uEye.y), uSkySun)");
+        }
+        if (path.equals("forward.frag")) {
+            // Viewpoint 0.1.7 no longer fogs forward.frag itself (post.frag does); nothing to patch.
+        } else if (path.equals("sky.frag") && source.contains("mistHeight(uEye.y)") && !source.contains(ACTIVE)) {
+            source = swap(path, source, "out vec4 fragColor;", DATA + "\nout vec4 fragColor;");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "mistHeight(uEye.y)",
+                            "mistHeight(uOPWeatherActive > 0.5 ? uOPWeatherPlayer.y : uEye.y)");
+        } else if (path.equals("puddle.frag") && !source.contains(ACTIVE)) {
+            // Puddles fade out with fog distance; measure it from the player, not the overhead camera.
+            source = swap(path, source, "out vec4 fragColor;", DATA + "\nout vec4 fragColor;");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "float d = clamp((vDistance - uFogRange.x)",
+                            "float d = clamp(((uOPWeatherActive > 0.5 ? distance(vPos, uOPWeatherPlayer) : vDistance)"
+                                    + " - uFogRange.x)");
+        } else if (path.equals("air.frag") && !source.contains(ACTIVE)) {
+            // Analytic air (Default/Somber packs) replaces volume.frag; start its fog at the player plane too.
+            String output = "layout(location = 0) out vec4 fragColor;";
+            source = swap(path, source, output, DATA + "\n" + output);
+            source =
+                    swap(
+                            path,
+                            source,
+                            "vec4 layerAir(vec3 dir, uvec2 tile, float jitter) {",
+                            """
+                    float oldPointFogDepth(vec3 dir, float along, float exit, float surfaceIndoor) {
+                      if (uOPWeatherActive < 0.5) return fogDepth(dir, along, exit);
+                      float from = min(oldPointAirStart(uEye, dir), along);
+                      return fogPiece(dir, from, along, surfaceIndoor);
+                    }
+
+                    vec4 layerAir(vec3 dir, uvec2 tile, float jitter) {""");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "  float exit = interiorExit(dir, along);\n"
+                                    + "  float sigma = fogDepth(dir, along, exit) / max(along, 1.0e-3);\n"
+                                    + "  float through = exp(-sigma * along), farAt",
+                            "  float exit = interiorExit(dir, along);\n"
+                                    + "  float opIndoor = !open"
+                                    + " && planInteriorAt(pos + normalize(uEye - pos) * FACE_SIDE) ? uInside : 0.0;\n"
+                                    + "  float sigma = oldPointFogDepth(dir, along, exit, opIndoor)"
+                                    + " / max(along, 1.0e-3);\n"
+                                    + "  float through = exp(-sigma * along), farAt");
+            source =
+                    swap(
+                            path,
+                            source,
+                            "  float sigma = fogDepth(dir, along, exit) / max(along, 1.0e-3);",
+                            "  float sigma = oldPointFogDepth(dir, along, exit, 0.0) / max(along, 1.0e-3);");
         } else if (path.equals("far_lamp.vert")) {
             source =
                     source.replace(
@@ -81,6 +192,23 @@ public final class OverheadWeather {
                             .replace(
                                     "atan((len + bb) / h) - atan(bb / h)",
                                     "atan((opStart + len + bb) / h) - atan((opStart + bb) / h)");
+        }
+        return source;
+    }
+
+    private static final java.util.Set<String> missed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** String swap that logs once when the target text is missing, so Viewpoint shader drift is visible. */
+    private static String swap(String where, String source, String from, String to) {
+        if (source.contains(from)) {
+            return source.replace(from, to);
+        }
+        if (source.contains(to)) {
+            return source; // already patched (Viewpoint can read a base shader twice)
+        }
+        String key = where + ": " + (from.length() > 60 ? from.substring(0, 60) + "..." : from);
+        if (missed.add(key)) {
+            System.out.println("[OldPoint] overhead weather: MISSED patch in " + key);
         }
         return source;
     }
