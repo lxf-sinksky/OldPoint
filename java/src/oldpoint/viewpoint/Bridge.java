@@ -26,6 +26,10 @@ public final class Bridge {
         return CameraController.topDownActive();
     }
 
+    public static void setLootContainer(Object object) {
+        LootHighlight.select(object);
+    }
+
     public static void setZoomLimits(double minimum, double maximum) {
         Zoom.limits(minimum, maximum);
     }
@@ -168,6 +172,10 @@ public final class Bridge {
 
     public static void setVisionRange(boolean enabled, double indicator) {
         VisionSystem.configure(enabled, (int) indicator);
+    }
+
+    public static void setVisionShade(double mode, double strength) {
+        VisionShade.configure((int) mode, strength);
     }
 
     private static volatile boolean itemMenuEnabled;
@@ -886,6 +894,7 @@ public final class Bridge {
         public static void exit(@Patch.Argument(0) String path, @Patch.Return(readOnly = false) String source) {
             source = PlayerOutline.shader(path, source);
             source = VisionIndicator.shader(path, source);
+            source = VisionShade.shader(path, source);
             source = OpeningSource.library(path, source);
             source = TreeCards.library(path, source);
             source = Interior.shader(path, source);
@@ -901,6 +910,7 @@ public final class Bridge {
         public static void exit(@Patch.This Object program) {
             Interior.uniforms(program);
             OverheadWeather.uniforms(program);
+            VisionShade.uniforms(program);
         }
     }
 
