@@ -138,6 +138,10 @@ public final class VisionSystem {
         snapshots.put(frame.scene, visual);
     }
 
+    static Visual visual(SceneData scene) {
+        return active() ? snapshots.get(scene) : null;
+    }
+
     static Visual indicatorState(SceneData scene) {
         if (!active() || indicator == 2) {
             return null;

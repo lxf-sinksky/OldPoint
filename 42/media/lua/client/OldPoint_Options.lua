@@ -81,6 +81,18 @@ local visionIndicator = options:addComboBox(
 visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionSimple", "Simple indicator"))
 visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionAiming", "Simple indicator (only while aiming)"), true)
 visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionNone", "None"))
+local visionShade = options:addComboBox(
+    "visionOutsideStyle", textOrFallback("UI_OldPoint_VisionShade", "Outside field of view"),
+    textOrFallback("UI_OldPoint_VisionShadeHelp", "Overhead only. How to show everything outside your character's viewing angle.")
+)
+visionShade:addItem(textOrFallback("UI_OldPoint_VisionShadeNone", "Unchanged"), true)
+visionShade:addItem(textOrFallback("UI_OldPoint_VisionShadeDarken", "Darken (like vanilla)"))
+visionShade:addItem(textOrFallback("UI_OldPoint_VisionShadeGrade", "Desaturate and tint"))
+local visionShadeStrength = options:addSlider(
+    "visionOutsideStrength", textOrFallback("UI_OldPoint_VisionShadeStrength", "Outside field of view strength"),
+    0, 100, 5, 70,
+    textOrFallback("UI_OldPoint_VisionShadeStrengthHelp", "How strongly the area outside your viewing angle is darkened or tinted.")
+)
 local minimumDistance = options:addSlider(
     "minimumDistance", textOrFallback("UI_OldPoint_MinimumDistance", "Minimum view distance"),
     10, 600, 1, 88,
@@ -119,7 +131,7 @@ local mirrorOptions = {
     enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
     stepLeft, stepRight, viewCycle, nativeFixedView, enteringBuilding, leavingBuilding,
     enteringDriver, leavingDriver, aimingCamera, releasedCamera, playerOutline,
-    aimingSystem, visionRange, visionIndicator, minimumDistance, maximumDistance,
+    aimingSystem, visionRange, visionIndicator, visionShade, visionShadeStrength, minimumDistance, maximumDistance,
     memoryPolicy, treeClearing, treeClearingRadius
 }
 local mirrorReady = false
@@ -132,7 +144,7 @@ local cameraOptions = {
 }
 local visionOptions = {
     playerOcclusionOutline=true, visionRangeEnabled=true,
-    visionRangeIndicator=true, treeClearing=true, treeClearingRadiusExpanded=true
+    visionRangeIndicator=true, visionOutsideStyle=true, visionOutsideStrength=true, treeClearing=true, treeClearingRadiusExpanded=true
 }
 local aimingOptions = { aimingSystem=true }
 local experimentalOptions = { viewpointItemMenu=true, showDebugMenu=true,
@@ -228,6 +240,10 @@ local function applyOptions()
     if OldPointBridge and OldPointBridge.setVisionRange then
         OldPointBridge.setVisionRange(visionRange:getValue() == true,
             (tonumber(visionIndicator:getValue()) or 2) - 1)
+    end
+    if OldPointBridge and OldPointBridge.setVisionShade then
+        OldPointBridge.setVisionShade((tonumber(visionShade:getValue()) or 1) - 1,
+            tonumber(visionShadeStrength:getValue()) or 70)
     end
     if OldPointBridge and OldPointBridge.setAutomaticCameraModes then
         OldPointBridge.setAutomaticCameraModes(

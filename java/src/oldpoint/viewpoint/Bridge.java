@@ -174,6 +174,10 @@ public final class Bridge {
         VisionSystem.configure(enabled, (int) indicator);
     }
 
+    public static void setVisionShade(double mode, double strength) {
+        VisionShade.configure((int) mode, strength);
+    }
+
     private static volatile boolean itemMenuEnabled;
 
     public static void setItemMenuEnabled(boolean enabled) {
@@ -890,6 +894,7 @@ public final class Bridge {
         public static void exit(@Patch.Argument(0) String path, @Patch.Return(readOnly = false) String source) {
             source = PlayerOutline.shader(path, source);
             source = VisionIndicator.shader(path, source);
+            source = VisionShade.shader(path, source);
             source = OpeningSource.library(path, source);
             source = TreeCards.library(path, source);
             source = Interior.shader(path, source);
@@ -905,6 +910,7 @@ public final class Bridge {
         public static void exit(@Patch.This Object program) {
             Interior.uniforms(program);
             OverheadWeather.uniforms(program);
+            VisionShade.uniforms(program);
         }
     }
 
