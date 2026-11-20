@@ -23,6 +23,31 @@ public final class OverheadWeather {
     // True Weathers owns these raw GL programs, outside Viewpoint's GlProgram registry.
     private static int veilProgram, veilLocation = -1, veilPlayer = -1, bankProgram, bankLocation = -1, bankPlayer = -1;
     private static boolean reportedFog, reportedVeil, reportedBank;
+    /**
+     * Overhead view cuts the ceilings away, but Viewpoint still draws each lamp's air halo, so a ceiling light leaves
+     * a glow floating in mid-air. In overhead view an elevated indoor lamp loses its halo when no solid surface lies
+     * just below it; floor lamps and TVs have their own model there and keep the halo. The test samples points
+     * straight under the lamp, so the result does not change with the camera angle.
+     */
+    private static final String HALO_SKIP =
+            "if (planIndoorsAt(uLightPos[i].xyz) && !planInteriorAt(uLightPos[i].xyz)) continue;";
+    private static final String FLOATING_LAMP =
+            """
+        // oldPointFloatingLamp: overhead view, indoor lamp high above its floor with nothing solid right below it.
+        bool oldPointSolidNear(vec3 at) {
+          vec4 clip = inverse(uInvViewProjection) * vec4(at, 1.0);
+          if (clip.w <= 0.0) return false;
+          vec2 uv = clip.xy / clip.w * 0.5 + 0.5;
+          if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return false;
+          float surface = texture(uDepth, uv).r;
+          return surface < 1.0 && distance(scenePos(uv, surface), at) < 0.35;
+        }
+        bool oldPointFloatingLamp(vec3 lamp) {
+          if (uOPWeatherActive < 0.5 || !planIndoorsAt(lamp)) return false;
+          if (planHeightAt(lamp) - float(planLevelAt(lamp)) * SQRT6 < 0.6 * SQRT6) return false;
+          return !oldPointSolidNear(lamp - vec3(0.0, 0.2, 0.0)) && !oldPointSolidNear(lamp - vec3(0.0, 0.5, 0.0));
+        }
+        """;
 
     private OverheadWeather() {}
 
@@ -63,6 +88,17 @@ public final class OverheadWeather {
                             "float fog = max(fogAt(d, uFogRange), hazeAt(d, uHaze));",
                             "float weatherD = uOPWeatherActive > 0.5 ? distance(centre, uOPWeatherPlayer) : d;\n"
                                     + "  float fog = max(fogAt(weatherD, uFogRange), hazeAt(weatherD, uHaze));");
+        } else if (path.equals("lib/lamp_air.glsl")
+                && !source.contains("oldPointFloatingLamp")
+                && source.contains("vec3 lampAlong(")
+                && source.contains("if (planIndoorsAt(lamp)) {")) {
+            source =
+                    DATA
+                            + source.replace("vec3 lampAlong(", FLOATING_LAMP + "\nvec3 lampAlong(")
+                                    .replace(
+                                            "if (planIndoorsAt(lamp)) {",
+                                            "if (oldPointFloatingLamp(lamp)) return vec3(0.0);\n"
+                                                    + "  if (planIndoorsAt(lamp)) {");
         } else if (path.equals("volume.frag") && !source.contains(ACTIVE)) {
             source =
                     source.replace("out vec4 fragColor;", DATA + "\nout vec4 fragColor;")
@@ -78,6 +114,10 @@ public final class OverheadWeather {
                     vec3 sunLight = airSunLight(dir);
                     """)
                             .replace("mix(t0, t1, jitter)", "(opStart + mix(t0, t1, jitter))")
+                            .replace("void main() {", FLOATING_LAMP + "\nvoid main() {")
+                            .replace(
+                                    HALO_SKIP,
+                                    HALO_SKIP + "\n    if (oldPointFloatingLamp(uLightPos[i].xyz)) continue;")
                             .replace(
                                     "atan((len + bb) / h) - atan(bb / h)",
                                     "atan((opStart + len + bb) / h) - atan((opStart + bb) / h)");
