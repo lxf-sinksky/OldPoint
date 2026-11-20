@@ -14,7 +14,8 @@ import zombie.iso.objects.IsoWorldInventoryObject;
 
 /**
  * Vanilla tints the container selected in the loot window (mouse wheel or button), but Viewpoint only outlines
- * what the cursor is on. While nothing is under the cursor, outline the selected loot container instead.
+ * what the cursor is on, and only when it finds an action for it. Outline an aimed object Viewpoint left bare
+ * (crafting workstations), and otherwise the selected loot container.
  */
 public final class LootHighlight {
     private static volatile IsoObject selected;
@@ -28,8 +29,14 @@ public final class LootHighlight {
     }
 
     public static void apply(Frame frame) {
-        IsoObject object = selected;
-        if (failed || object == null || frame == null || !CameraController.topDownActive()) {
+        if (failed || frame == null || !CameraController.topDownActive()) {
+            return;
+        }
+        // Viewpoint drops its outline when it finds no action for the aimed object (crafting
+        // workstations), although a click still reaches it. Outline the aimed object first.
+        IsoObject hovered = MouseInteraction.picked();
+        IsoObject object = hovered != null ? hovered : selected;
+        if (object == null) {
             return;
         }
         SceneData scene = frame.scene;
