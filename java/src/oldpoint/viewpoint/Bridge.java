@@ -26,6 +26,10 @@ public final class Bridge {
         return CameraController.topDownActive();
     }
 
+    public static void setLootContainer(Object object) {
+        LootHighlight.select(object);
+    }
+
     public static void setZoomLimits(double minimum, double maximum) {
         Zoom.limits(minimum, maximum);
     }
