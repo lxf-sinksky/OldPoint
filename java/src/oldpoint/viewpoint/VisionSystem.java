@@ -18,6 +18,14 @@ public final class VisionSystem {
 
     record Visual(float x, float y, float z, float heading, float degrees, boolean aiming) {}
 
+    /** Which squares around the player its line of sight reaches on its own level, a bit each (1 = seen). */
+    record LineOfSight(int x0, int y0, int level, int[] bits) {}
+
+    static final int SIGHT_RADIUS = 32;
+    static final int SIGHT_SIZE = SIGHT_RADIUS * 2;
+    private static final java.util.Map<SceneData, LineOfSight> sights =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
     private static final java.util.Map<SceneData, Visual> snapshots =
             java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
     private static final Vector2 look = new Vector2();
@@ -123,6 +131,7 @@ public final class VisionSystem {
         if (!active() || player.isDead()) {
             visual = null;
             snapshots.remove(frame.scene);
+            sights.remove(frame.scene);
             return;
         }
         player.getLookVector(look);
@@ -136,6 +145,33 @@ public final class VisionSystem {
                         degrees,
                         player.isAiming());
         snapshots.put(frame.scene, visual);
+        sights.put(frame.scene, sight(player));
+    }
+
+    private static LineOfSight sight(IsoPlayer player) {
+        zombie.iso.IsoCell cell = zombie.iso.IsoWorld.instance == null ? null : zombie.iso.IsoWorld.instance.getCell();
+        if (cell == null) {
+            return null;
+        }
+        int index = player.getPlayerNum();
+        int x0 = (int) Math.floor(player.getX()) - SIGHT_RADIUS;
+        int y0 = (int) Math.floor(player.getY()) - SIGHT_RADIUS;
+        int level = (int) Math.floor(player.getZ());
+        int[] bits = new int[SIGHT_SIZE * SIGHT_SIZE / 32];
+        for (int j = 0; j < SIGHT_SIZE; j++) {
+            for (int i = 0; i < SIGHT_SIZE; i++) {
+                zombie.iso.IsoGridSquare square = cell.getGridSquare(x0 + i, y0 + j, level);
+                if (square == null || square.isCouldSee(index)) {
+                    int n = j * SIGHT_SIZE + i;
+                    bits[n >> 5] |= 1 << (n & 31);
+                }
+            }
+        }
+        return new LineOfSight(x0, y0, level, bits);
+    }
+
+    static LineOfSight sight(SceneData scene) {
+        return active() ? sights.get(scene) : null;
     }
 
     static Visual visual(SceneData scene) {

@@ -8,7 +8,8 @@ import viewpoint.render.WorldRenderer;
 
 /**
  * Overhead shading of everything outside the player's field of view, applied in the lighting pass so the arc
- * indicator, outlines and UI stay untouched. Darken follows vanilla's dimming; grade desaturates and cools the
+ * indicator, outlines and UI stay untouched. Like vanilla, it also covers squares hidden behind walls (the
+ * player's line of sight on its own level). Darken follows vanilla's dimming; grade desaturates and cools the
  * area like PZ optimisation mods do. The cone is the native viewing angle used for zombie visibility.
  */
 public final class VisionShade {
@@ -20,6 +21,36 @@ public final class VisionShade {
         uniform float uOPVisionStrength;
         uniform vec3 uOPVisionCentre;
         uniform vec2 uOPVisionHeading;
+        uniform uvec4 uOPVisionBits[32];
+        uniform vec4 uOPVisionGrid;
+        uniform vec3 uOPVisionOrigin;
+        float oldPointSeen(vec2 c) {
+          if (c.x < 0.0 || c.y < 0.0 || c.x > 63.0 || c.y > 63.0) return 1.0;
+          int i = int(c.y) * 64 + int(c.x);
+          uint word = uOPVisionBits[i >> 7][(i >> 5) & 3];
+          return float((word >> uint(i & 31)) & 1u);
+        }
+        float oldPointHidden(vec3 p) {
+          if (uOPVisionGrid.z <= 0.0) return 0.0;
+          // Back to game squares: render x and z are negated game x and y, storeys SQRT6 apart.
+          vec2 game = -(p.xz + uOPVisionOrigin.xz);
+          float level = floor((p.y + uOPVisionOrigin.y) / 2.4494896 + 0.02);
+          if (abs(level - uOPVisionGrid.w) > 0.5) return 0.0;
+          vec2 player = -(uOPVisionCentre.xz + uOPVisionOrigin.xz);
+          vec2 toward = player - game;
+          float far = length(toward);
+          // Step a little toward the player so a wall's face reads the square in front of it.
+          if (far > 0.001) game += toward / far * min(0.35, far);
+          // Blend the four nearest squares' centres for soft edges.
+          vec2 g = game - uOPVisionGrid.xy - 0.5;
+          vec2 b = floor(g);
+          vec2 f = g - b;
+          float seen = mix(
+              mix(oldPointSeen(b), oldPointSeen(b + vec2(1.0, 0.0)), f.x),
+              mix(oldPointSeen(b + vec2(0.0, 1.0)), oldPointSeen(b + vec2(1.0, 1.0)), f.x),
+              f.y);
+          return 1.0 - seen;
+        }
         float oldPointOutsideView(vec3 p) {
           vec2 local = -(p - uOPVisionCentre).xz;
           float radius = length(local);
@@ -37,7 +68,8 @@ public final class VisionShade {
           if (uOPVisionMode < 0.5) return;
           float opDepth = texture(uDepth, vUv).r;
           if (opDepth >= 0.9999999) return;
-          float o = oldPointOutsideView(scenePos(vUv, opDepth)) * uOPVisionStrength;
+          vec3 opPos = scenePos(vUv, opDepth);
+          float o = max(oldPointOutsideView(opPos), oldPointHidden(opPos)) * uOPVisionStrength;
           if (o <= 0.0) return;
           vec3 c = fragColor.rgb;
           if (uOPVisionMode < 1.5) {
@@ -100,6 +132,18 @@ public final class VisionShade {
                 (float) (v.z() * 2.4494896 - scene.originY),
                 (float) (-v.y() - scene.originZ));
         program.set("uOPVisionHeading", v.heading(), (float) Math.toRadians(v.degrees()) * 0.5f);
+        program.set("uOPVisionOrigin", (float) scene.originX, (float) scene.originY, (float) scene.originZ);
+        VisionSystem.LineOfSight sight = VisionSystem.sight(scene);
+        if (sight == null || !SightBits.set(program, sight)) {
+            program.set("uOPVisionGrid", 0f, 0f, 0f, 0f);
+            return;
+        }
+        program.set(
+                "uOPVisionGrid",
+                (float) sight.x0(),
+                (float) sight.y0(),
+                (float) VisionSystem.SIGHT_SIZE,
+                (float) sight.level());
     }
 
     private static SceneData scene() {

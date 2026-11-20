@@ -70,7 +70,7 @@
     "UI_OldPoint_ShowDebugMenu": "是否显示 DEBUG 调试菜单",
     "UI_OldPoint_ShowDebugMenuHelp": "在俯视角的右键菜单中显示物体调试工具。默认关闭。",
     "UI_OldPoint_VisionShade": "视野外区域",
-    "UI_OldPoint_VisionShadeHelp": "仅俯视模式生效。设置角色视野角度以外区域的显示方式。变暗与原版相同；去色并着色会降低其饱和度。角色周围的格子始终可见。",
+    "UI_OldPoint_VisionShadeHelp": "仅俯视模式生效。设置角色看不到的区域（视野角度以外或墙后）的显示方式。变暗与原版相同；去色并着色会降低其饱和度。角色周围的格子始终可见。",
     "UI_OldPoint_VisionShadeNone": "不变",
     "UI_OldPoint_VisionShadeDarken": "变暗（原版效果）",
     "UI_OldPoint_VisionShadeGrade": "去色并着色",

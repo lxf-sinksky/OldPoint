@@ -81,7 +81,7 @@ UI_OldPoint_ShowDebugMenu = "Show DEBUG menu",
 UI_OldPoint_ShowDebugMenuHelp = "Show object debugging tools in the overhead right-click menu. Disabled by default.",
 
 UI_OldPoint_VisionShade = "Outside field of view",
-UI_OldPoint_VisionShadeHelp = "Overhead only. How to show everything outside your character's viewing angle. Darken dims it like vanilla; desaturate and tint drains its colour. The squares right around you stay in view.",
+UI_OldPoint_VisionShadeHelp = "Overhead only. How to show everything your character can't see: outside its viewing angle or behind walls. Darken dims it like vanilla; desaturate and tint drains its colour. The squares right around you stay in view.",
 UI_OldPoint_VisionShadeNone = "Unchanged",
 UI_OldPoint_VisionShadeDarken = "Darken (like vanilla)",
 UI_OldPoint_VisionShadeGrade = "Desaturate and tint",

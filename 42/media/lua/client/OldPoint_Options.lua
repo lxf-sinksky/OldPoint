@@ -83,7 +83,7 @@ visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionAiming", "Simple indic
 visionIndicator:addItem(textOrFallback("UI_OldPoint_VisionNone", "None"))
 local visionShade = options:addComboBox(
     "visionOutsideStyle", textOrFallback("UI_OldPoint_VisionShade", "Outside field of view"),
-    textOrFallback("UI_OldPoint_VisionShadeHelp", "Overhead only. How to show everything outside your character's viewing angle.")
+    textOrFallback("UI_OldPoint_VisionShadeHelp", "Overhead only. How to show everything your character can't see: outside its viewing angle or behind walls.")
 )
 visionShade:addItem(textOrFallback("UI_OldPoint_VisionShadeNone", "Unchanged"), true)
 visionShade:addItem(textOrFallback("UI_OldPoint_VisionShadeDarken", "Darken (like vanilla)"))
