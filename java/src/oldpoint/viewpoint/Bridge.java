@@ -862,7 +862,7 @@ public final class Bridge {
         }
     }
 
-    @Patch(className = "viewpoint.visibility.Rooms", methodName = "select", strictMatch = false)
+    @Patch(className = "viewpoint.visibility.Rooms", methodName = "selected", strictMatch = true)
     public static final class RoomSelectionPatch {
         @Patch.OnExit
         public static void exit() {

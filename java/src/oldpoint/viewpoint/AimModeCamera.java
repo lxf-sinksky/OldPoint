@@ -39,7 +39,7 @@ final class AimModeCamera {
 
     static void update() {
         IsoPlayer player = IsoPlayer.players[0];
-        if (player == null || player.isDead()) {
+        if (player == null || player.isDead() || player.getVehicle() != null) {
             reset();
             return;
         }

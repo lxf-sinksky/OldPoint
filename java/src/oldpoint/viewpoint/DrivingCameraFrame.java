@@ -17,7 +17,8 @@ public final class DrivingCameraFrame {
         Core core = Core.getInstance();
         Frame frame = (Frame) value;
         CameraCapture.Snapshot snapshot = CameraCapture.snapshot(frame);
-        if (!snapshot.topDown() || !core.getOptionPanCameraWhileDriving()) {
+        if (!snapshot.topDown()
+                || !(core.getOptionPanCameraWhileDriving() || core.getOptionPanCameraWhileAiming())) {
             return;
         }
         int index = player.getIndex();

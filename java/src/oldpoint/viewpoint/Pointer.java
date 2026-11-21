@@ -238,6 +238,9 @@ public final class Pointer {
             return false;
         }
         IsoGameCharacter player = (IsoGameCharacter) value;
+        if (player.getVehicle() != null) {
+            return true;
+        }
         if (player.isAiming()) {
             if (BallisticsAim.aimCharacter(player)) {
                 return true;

@@ -27,7 +27,8 @@ public final class AimCamera {
 
     static void pan(Frame frame, IsoPlayer player, float distance, float dx, float dy, float dz) {
         Core core = Core.getInstance();
-        boolean drivingPan = player.getVehicle() != null && core.getOptionPanCameraWhileDriving();
+        boolean drivingPan = player.getVehicle() != null
+                && (core.getOptionPanCameraWhileDriving() || core.getOptionPanCameraWhileAiming());
         if (player.isDead() || (!drivingPan && (!core.getOptionPanCameraWhileAiming()
                 || SettingsWindow.shown() || UIManager.isModalVisible() || GameTime.isGamePaused()))) {
             return;
@@ -63,6 +64,23 @@ public final class AimCamera {
     static void drive(Frame frame, IsoPlayer player, PlayerCamera camera) {
         float screenX = camera.rightClickX;
         float screenY = camera.rightClickY;
+        if (player.isLookingWhileInVehicle()) {
+            float yaw = frame.viewYaw;
+            float pitch = frame.viewPitch;
+            float distance = Layout.distance(Core.getInstance().getScreenHeight(), Core.getTileScale(),
+                    Zoom.renderedFactor());
+            float pixels = 2 * distance * (float) Math.tan(Layout.FOV * 0.5)
+                    / Math.max(1, IsoCamera.getScreenHeight(player.getIndex()))
+                    / Math.max(0.01f, Core.getInstance().getZoom(player.getIndex()));
+            float dx = (float) -Math.cos(yaw);
+            float dz = (float) -Math.sin(yaw);
+            float vertical = Math.max(0.1f, Math.abs((float) Math.sin(pitch)));
+            frame.eyeX = frame.camX - player.getX()
+                    + (-dz * screenX - dx * screenY / vertical) * pixels;
+            frame.eyeZ = frame.camY - player.getY()
+                    + (dx * screenX - dz * screenY / vertical) * pixels;
+            return;
+        }
         frame.eyeX = frame.camX - player.getX() - (screenX + 2 * screenY) / 128;
         frame.eyeZ = frame.camY - player.getY() - (2 * screenY - screenX) / 128;
     }

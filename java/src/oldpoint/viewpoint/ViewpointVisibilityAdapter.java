@@ -7,6 +7,7 @@ import viewpoint.core.Frame;
 final class ViewpointVisibilityAdapter {
     private static Field roomsView;
     private static Field[] roomViewFields;
+    private static Field roomsHiding;
 
     private ViewpointVisibilityAdapter() {}
 
@@ -51,9 +52,13 @@ final class ViewpointVisibilityAdapter {
             // eye to the player while drawing an overhead exterior view omits
             // interior walls but leaves their doors/models visible. OldPoint's
             // local structural cutaway now owns indoor visibility in this mode.
-            Field hiding = Class.forName("viewpoint.visibility.Rooms").getDeclaredField("hiding");
-            hiding.setAccessible(true);
-            hiding.setBoolean(null, false);
+            // Called only after Rooms.selected() has joined its selection job.
+            // Writing this at select() exit races with choose(), which writes true.
+            if (roomsHiding == null) {
+                roomsHiding = Class.forName("viewpoint.visibility.Rooms").getDeclaredField("hiding");
+                roomsHiding.setAccessible(true);
+            }
+            roomsHiding.setBoolean(null, false);
         } catch (ReflectiveOperationException error) {
             Interior.report(error);
         }
