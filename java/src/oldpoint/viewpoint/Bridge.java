@@ -13,7 +13,7 @@ import zombie.iso.Vector2;
 @Exposer.LuaClass(name = "OldPointBridge")
 public final class Bridge {
     static {
-        System.out.println("[OldPoint] loaded build 0.6.159: Viewpoint 0.1.7, game 42.22");
+        System.out.println("[OldPoint] loaded build 0.6.160: Viewpoint 0.1.7, game 42.22");
     }
 
     private Bridge() {}

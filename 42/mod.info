@@ -1,7 +1,7 @@
 name=OldPoint
 id=OldPoint
 author=sinksky
-modversion=0.6.159
+modversion=0.6.160
 versionMin=42.22
 require=Viewpoint
 javaJarFile=media/java/client/OldPoint.jar
