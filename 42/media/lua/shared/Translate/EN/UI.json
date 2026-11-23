@@ -1,6 +1,11 @@
 {
+    "UI_OldPoint_SteppedZoom": "Stepped zoom",
+    "UI_OldPoint_ZoomStepSize": "Zoom step size",
     "UI_OldPoint_PadTab": "Gamepad controls",
     "UI_OldPoint_PadGain": "Aim sensitivity",
+    "UI_OldPoint_PadHead": "Aim assist targets the head",
+    "UI_OldPoint_PadLock": "R3 locks nearest target",
+    "UI_OldPoint_LockGain": "Sensitivity while locked (percent)",
     "UI_OldPoint_PadAssist": "Aim assist",
     "UI_OldPoint_RotationKey": "View rotation key",
     "UI_OldPoint_RotationKeyHelp": "Hold and move the mouse to rotate overhead view. Default: middle mouse button. Click to bind a mouse button or a single keyboard key; clear to disable. Unavailable with the fixed vanilla angle.",

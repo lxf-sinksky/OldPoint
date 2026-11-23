@@ -105,6 +105,46 @@ public final class BallisticsAim {
         changed.put(controller, id);
     }
 
+    private static int restrictCameraHits(int targetId, float[] hits, int count) {
+        int kept = 0;
+        for (int i = 0; i < Math.min(count, hits.length / 5); i++) {
+            if ((int) hits[i * 5] == targetId) {
+                System.arraycopy(hits, i * 5, hits, kept * 5, 5);
+                kept++;
+            }
+        }
+        return kept;
+    }
+
+    private static Field liveCount, cachedCount, cachedHits;
+
+    public static void filterLockedCameraTargets(Object value) {
+        BallisticsController controller = (BallisticsController) value;
+        IsoPlayer player = owner(controller);
+        var target = GamepadAim.targetFor(player);
+        if (target == null) {
+            return;
+        }
+        try {
+            if (cachedHits == null) {
+                liveCount = BallisticsController.class.getDeclaredField("numberOfCameraTargets");
+                cachedCount = BallisticsController.class.getDeclaredField("cachedNumberOfCameraTargets");
+                Field data = BallisticsController.class.getDeclaredField("cachedBallisticsCameraTargets");
+                liveCount.setAccessible(true);
+                cachedCount.setAccessible(true);
+                data.setAccessible(true);
+                cachedHits = data;
+            }
+            float[] hits = controller.getCameraTargets();
+            int count = restrictCameraHits(target.getID(), hits, controller.getNumberOfCameraTargets());
+            System.arraycopy(hits, 0, (float[]) cachedHits.get(controller), 0, count * 5);
+            liveCount.setInt(controller, count);
+            cachedCount.setInt(controller, count);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Unable to synchronize locked camera hits", ex);
+        }
+    }
+
     /** Feed the latest native body hit to updateAimingVector, including prone targets. */
     public static void refreshTarget(Object value) {
         if (!CameraController.topDownActive()) {
@@ -193,6 +233,7 @@ public final class BallisticsAim {
         @Patch.OnExit
         public static void exit(
                 @Patch.This Object controller, @Patch.Argument(0) float range, @Patch.Argument(1) boolean allParts) {
+            BallisticsAim.filterLockedCameraTargets(controller);
             ImprovedAim.nativeTargets(controller);
         }
     }

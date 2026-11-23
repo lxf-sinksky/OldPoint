@@ -10,6 +10,9 @@ import viewpoint.platform.SettingsWindow;
 public final class Zoom {
     private static double minimum = 88;
     private static double maximum = 600;
+    private static boolean stepped;
+    private static int stepSize = 50;
+    private static boolean configured;
     private static double nativeMinimum = 10;
     private static final double CLOSE_VIEW_SCALE = 0.55;
     private static double current = 100;
@@ -44,18 +47,33 @@ public final class Zoom {
     }
 
     public static synchronized void limits(double min, double max) {
+        configure(min, max, stepped, stepSize);
+    }
+
+    public static synchronized void configure(double min, double max, boolean useSteps, int size) {
         if (!Double.isFinite(min) || !Double.isFinite(max)) {
             return;
         }
-        minimum = Math.max(10, Math.min(600, min));
-        maximum = Math.max(minimum, Math.max(10, Math.min(600, max)));
+        min = Math.max(10, Math.min(600, min));
+        max = Math.max(min, Math.min(600, max));
+        size = Math.max(10, Math.min(600, size));
+        boolean changed = minimum != min || maximum != max || stepped != useSteps || stepSize != size;
+        minimum = min;
+        maximum = max;
+        stepped = useSteps;
+        stepSize = size;
+        if (changed && (configured || stepped)) {
+            remembered = minimum;
+            restoreValue(minimum);
+        }
+        configured = true;
         target = clamp(target);
         current = clamp(current);
         remembered = clamp(remembered);
     }
 
     public static synchronized void reset() {
-        restoreValue(100);
+        restoreValue(stepped ? minimum : 100);
     }
 
     /** Keep the last captured view distance, without advancing its easing. */
@@ -172,7 +190,13 @@ public final class Zoom {
     }
 
     private static void adjust(int direction) {
-        // Adjust a continuous target instead of selecting a preset percentage.
+        if (stepped) {
+            double offset = (target - minimum) / stepSize;
+            double index = direction > 0 ? Math.floor(offset) + 1 : Math.ceil(offset) - 1;
+            current = target = clamp(minimum + index * stepSize);
+            renderedFactor = displayFactor(current);
+            return;
+        }
         target = clamp(target * Math.exp(Math.signum(direction) * 0.08));
     }
 }

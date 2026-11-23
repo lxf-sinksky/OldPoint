@@ -197,7 +197,7 @@ public final class Pointer {
         double mouseX = Mouse.getXA(), mouseY = Mouse.getYA();
         boolean pad = GamepadAim.bound(player);
         if (pad) {
-            if (!GamepadAim.cursor((zombie.characters.IsoPlayer) player, p.height, ray.cursor)) {
+            if (!GamepadAim.cursor((zombie.characters.IsoPlayer) player, p.width, p.height, ray.cursor)) {
                 result.set(0, 0);
                 return true;
             }
@@ -348,7 +348,7 @@ public final class Pointer {
         Ray ray = rays.get();
         var player = zombie.characters.IsoPlayer.getInstance();
         boolean pad = GamepadAim.bound(player);
-        if (pad && !GamepadAim.cursor(player, p.height, ray.cursor)) {
+        if (pad && !GamepadAim.cursor(player, p.width, p.height, ray.cursor)) {
             return false;
         }
         double nx = 2.0 * (pad ? ray.cursor.x : Mouse.getXA()) / Math.max(1, p.width) - 1;
@@ -393,7 +393,27 @@ public final class Pointer {
         }
     }
 
+    static boolean gamepadCursor(Vector2 point) {
+        Projection p = projection;
+        return p != null && GamepadAim.cursor(zombie.characters.IsoPlayer.getInstance(), p.width, p.height, point);
+    }
+
+    public static int nativeReticleCoordinate(int index, int original, boolean horizontal) {
+        var player = zombie.characters.IsoPlayer.getInstance();
+        if (!GamepadAim.bound(player) || player.getPlayerNum() != index) {
+            return original;
+        }
+        Vector2 cursor = rays.get().cursor;
+        if (!gamepadCursor(cursor)) {
+            return original;
+        }
+        return horizontal ? Math.round(cursor.x) - zombie.iso.IsoCamera.getScreenLeft(index)
+                : Math.round(cursor.y) - zombie.iso.IsoCamera.getScreenTop(index);
+    }
+
     public static boolean showNativeAim() {
-        return CameraController.keepAimCursor() && !overUI();
+        return CameraController.keepAimCursor() && !ImprovedAim.showing()
+                && (GamepadAim.bound(zombie.characters.IsoPlayer.getInstance())
+                        ? !UIManager.isModalVisible() : !overUI());
     }
 }

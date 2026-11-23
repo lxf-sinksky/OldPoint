@@ -104,6 +104,9 @@ local maximumDistance = options:addSlider(
     textOrFallback("UI_OldPoint_DistanceHelp", "100 = reference distance; the closest view makes the character larger; maximum 600")
 )
 
+local steppedZoom = options:addTickBox("steppedZoom", getText("UI_OldPoint_SteppedZoom"), false)
+local zoomStepSize = options:addSlider("zoomStepSize", getText("UI_OldPoint_ZoomStepSize"), 10, 600, 1, 50)
+
 local memoryPolicy = options:addComboBox("memoryPolicy", textOrFallback("UI_OldPoint_MemoryPolicy", "Memory policy"),
     textOrFallback("UI_OldPoint_MemoryHelp", "Automatic adjusts Viewpoint cache ceilings for physical RAM. Memory saving uses smaller caches and floor detail. Native keeps Viewpoint budgets. Restart after changing for full effect."))
 memoryPolicy:addItem(textOrFallback("UI_OldPoint_MemoryAuto", "Automatic (physical RAM)"))
@@ -125,17 +128,21 @@ local itemMenu = options:addTickBox("viewpointItemMenu", getText("UI_OldPoint_It
 local debugMenu = options:addTickBox("showDebugMenu", getText("UI_OldPoint_ShowDebugMenu"), false,
     getText("UI_OldPoint_ShowDebugMenuHelp"))
 
-local padGain = options:addSlider("gamepadAimSensitivity", getText("UI_OldPoint_PadGain"), 25, 200, 5, 100)
-local padAssist = options:addTickBox("gamepadAimAssist", getText("UI_OldPoint_PadAssist"), true)
+local padGain = options:addSlider("gamepadAimSensitivity", getText("UI_OldPoint_PadGain"), 25, 200, 5, 50)
+local lockGain = options:addSlider("gamepadLockSensitivity", getText("UI_OldPoint_LockGain"), 10, 200, 5, 50)
+local padAssist = options:addTickBox("gamepadAimAssist", getText("UI_OldPoint_PadAssist"), false)
+local padHead = options:addTickBox("gamepadAssistHead", getText("UI_OldPoint_PadHead"), false)
+
+local padLock = options:addTickBox("gamepadTargetLock", getText("UI_OldPoint_PadLock"), false)
 
 local mirrorOptions = {
-    padGain, padAssist,
     debugMenu,
     itemMenu,
     enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
     stepLeft, stepRight, viewCycle, nativeFixedView, enteringBuilding, leavingBuilding,
     enteringDriver, leavingDriver, aimingCamera, releasedCamera, playerOutline,
     aimingSystem, visionRange, visionIndicator, visionShade, visionShadeStrength, minimumDistance, maximumDistance,
+    steppedZoom, zoomStepSize, padGain, padAssist, padHead, padLock, lockGain,
     memoryPolicy, treeClearing, treeClearingRadius
 }
 local mirrorReady = false
@@ -144,7 +151,7 @@ local cameraOptions = {
     enterOverheadRemembered=true, resetOverheadOrientation=true, cameraControlMode=true,
     cameraRotationKey=true, stepRotationAngle=true, stepRotationLeft=true,
     stepRotationRight=true, threeViewCycle=true, nativeFixedView=true,
-    minimumDistance=true, maximumDistance=true
+    minimumDistance=true, maximumDistance=true, steppedZoom=true, zoomStepSize=true
 }
 local visionOptions = {
     playerOcclusionOutline=true, visionRangeEnabled=true,
@@ -169,9 +176,9 @@ local function registerMirror()
         "OldPoint/" .. performanceName
     local padName = getText("UI_OldPoint_PadTab")
     local padSection = "OldPoint/" .. padName
-    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName, padName}, "\t"))
+    OldPointBridge.settingsTabs(table.concat({experimentalName, cameraName, visionName, aimingName, padName, performanceName}, "\t"))
     for _, option in ipairs(mirrorOptions) do
-        local section = (option == padGain or option == padAssist) and padSection or cameraOptions[option.id] and camera
+        local section = (option == padGain or option == padAssist or option == padHead or option == padLock or option == lockGain) and padSection or cameraOptions[option.id] and camera
             or visionOptions[option.id] and vision
             or aimingOptions[option.id] and aiming
             or experimentalOptions[option.id] and experimental or performance
@@ -195,6 +202,7 @@ local function registerMirror()
         if not ok then print("[OldPoint] Viewpoint setting " .. option.id .. ": " .. tostring(error)) end
     end
     if OldPointBridge.settingsShownWhen then
+        OldPointBridge.settingsShownWhen("zoomStepSize", "steppedZoom", 1)
         OldPointBridge.settingsShownWhen("cameraRotationKey", "cameraControlMode", 0)
         for _, id in ipairs({"stepRotationAngle", "stepRotationLeft", "stepRotationRight"}) do
             OldPointBridge.settingsShownWhen(id, "cameraControlMode", 1)
@@ -225,6 +233,15 @@ local function pullMirror()
 end
 
 local function applyOptions()
+    if OldPointBridge and OldPointBridge.setLockSensitivity then
+        OldPointBridge.setLockSensitivity(lockGain:getValue())
+    end
+    if OldPointBridge and OldPointBridge.setAssistHead then
+        OldPointBridge.setAssistHead(padHead:getValue() == true)
+    end
+    if OldPointBridge and OldPointBridge.setGamepadTargetLock then
+        OldPointBridge.setGamepadTargetLock(padLock:getValue() == true)
+    end
     if OldPointBridge and OldPointBridge.configureGamepadAim then
         OldPointBridge.configureGamepadAim(padGain:getValue(), padAssist:getValue() == true)
     end
@@ -286,7 +303,9 @@ local function applyOptions()
     if OldPointBridge and OldPointBridge.setEnabled then
         OldPointBridge.setEnabled(viewCycle:getValue() == true)
     end
-    if OldPointBridge and OldPointBridge.setZoomLimits then
+    if OldPointBridge and OldPointBridge.configureZoom then
+        OldPointBridge.configureZoom(minimum, maximum, steppedZoom:getValue() == true, zoomStepSize:getValue())
+    elseif OldPointBridge and OldPointBridge.setZoomLimits then
         OldPointBridge.setZoomLimits(minimum, maximum)
     end
     if OldPointBridge and OldPointBridge.setNativeFixedView then
@@ -341,7 +360,10 @@ local function updateStepLayout()
     local keys = stepAngle.element
     local after = viewCycle.element
     local control = rotationControl.element
-    if not first or not keys or not after or not control or not first.parent then return end
+    local stepSlider = zoomStepSize.element
+    local zoomToggle = steppedZoom.element
+    if not first or not keys or not after or not control or not first.parent
+        or not stepSlider or not stepSlider.parent or not zoomToggle then return end
     local panel = first.parent
     if not panel:isVisible() then return end
     if not stepLayout or stepLayout.first ~= first then
@@ -350,11 +372,15 @@ local function updateStepLayout()
         for _, child in pairs(panel:getChildren()) do
             nodes[#nodes + 1] = {control=child, y=child:getY(), visible=child:isVisible()}
         end
+        local zoomY = stepSlider.parent:getY()
         stepLayout = {first=first, panel=panel, startY=startY, keysY=keysY, endY=endY,
+            zoomY=zoomY, zoomHeight=zoomY - zoomToggle:getY(),
             height=panel:getScrollHeight(), nodes=nodes}
     end
     local keyMode = control.selected == 2
-    if stepLayout.keyMode == keyMode then return end
+    local showStep = zoomToggle:isSelected(1)
+    if stepLayout.keyMode == keyMode and stepLayout.showStep == showStep then return end
+    stepLayout.showStep = showStep
     stepLayout.keyMode = keyMode
     local mouseHeight = stepLayout.keysY - stepLayout.startY
     local keyHeight = stepLayout.endY - stepLayout.keysY
@@ -366,10 +392,14 @@ local function updateStepLayout()
             node.control:setVisible(keyMode and node.visible)
             node.control:setY(node.y - (keyMode and mouseHeight or 0))
         elseif node.y >= stepLayout.endY then
-            node.control:setY(node.y - shift)
+            local belowStep = node.y >= stepLayout.zoomY + stepLayout.zoomHeight
+            if node.y >= stepLayout.zoomY and not belowStep then
+                node.control:setVisible(showStep and node.visible)
+            end
+            node.control:setY(node.y - shift - (belowStep and not showStep and stepLayout.zoomHeight or 0))
         end
     end
-    panel:setScrollHeight(stepLayout.height - shift)
+    panel:setScrollHeight(stepLayout.height - shift - (showStep and 0 or stepLayout.zoomHeight))
 end
 Events.OnPreUIDraw.Add(updateStepLayout)
 

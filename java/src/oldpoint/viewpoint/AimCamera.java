@@ -52,6 +52,28 @@ public final class AimCamera {
                         / Math.max(1, IsoCamera.getScreenHeight(index))
                         / Math.max(0.01f, core.getZoom(index));
         float px = camera.rightClickX * pixels, py = camera.rightClickY * pixels;
+        if (GamepadAim.bound(player) && player.getVehicle() == null) {
+            if (!player.isAiming() && !player.isPrecisionAimKeyDown()) {
+                return;
+            }
+            int id = viewpoint.input.PadLook.bind(player);
+            var input = zombie.GameWindow.GameInput;
+            if (id < 0 || input.getAxisCount(id) < 4) {
+                return;
+            }
+            float x = input.getAxisValue(id, 2), y = input.getAxisValue(id, 3);
+            x = GamepadAim.cameraAxis(true, x);
+            y = GamepadAim.cameraAxis(false, y);
+            float length = (float) Math.hypot(x, y);
+            if (length <= 0.15f) {
+                return;
+            }
+            float shift = Math.min(1, (length - 0.15f) / 0.85f) / length;
+            float worldHeight = 2 * distance * (float) Math.tan(Layout.FOV * 0.5);
+            px = x * shift * worldHeight * 0.20f * IsoCamera.getScreenWidth(index)
+                    / Math.max(1, IsoCamera.getScreenHeight(index));
+            py = y * shift * worldHeight * 0.20f;
+        }
         float horizontal = (float) Math.sqrt(dx * dx + dz * dz);
         if (!Float.isFinite(px) || !Float.isFinite(py) || horizontal < 0.001f) {
             return;

@@ -38,6 +38,10 @@ public final class Bridge {
         return Zoom.nativeMinimumDistance();
     }
 
+    public static void configureZoom(double minimum, double maximum, boolean stepped, int size) {
+        Zoom.configure(minimum, maximum, stepped, size);
+    }
+
     public static void settingsToggle(String id, String label, String section, String help, boolean value) {
         SettingsMirror.toggle(id, label, section, help, value);
     }
@@ -186,6 +190,18 @@ public final class Bridge {
 
     public static boolean hideItemMenu() {
         return topDownActive() && !itemMenuEnabled;
+    }
+
+    public static void setLockSensitivity(double percent) {
+        GamepadAim.lockGain = (float) Math.max(0.1, Math.min(2, percent / 100));
+    }
+
+    public static void setAssistHead(boolean enabled) {
+        GamepadAim.assistHead = enabled;
+    }
+
+    public static void setGamepadTargetLock(boolean enabled) {
+        GamepadAim.allowLock = enabled;
     }
 
     public static void configureGamepadAim(double sensitivity, boolean assist) {
@@ -643,9 +659,10 @@ public final class Bridge {
         }
 
         @Patch.OnExit
-        public static void exit(@Patch.Argument(1) int original, @Patch.Return(readOnly = false) int result) {
+        public static void exit(@Patch.Argument(0) int index, @Patch.Argument(1) int original,
+                @Patch.Argument(2) boolean horizontal, @Patch.Return(readOnly = false) int result) {
             if (Bridge.topDownActive()) {
-                result = original;
+                result = Pointer.nativeReticleCoordinate(index, original, horizontal);
             }
         }
     }

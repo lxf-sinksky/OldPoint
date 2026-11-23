@@ -36,6 +36,17 @@ public final class ImprovedAim {
     private static long targetAt;
     private static int targetX, targetY, targetId;
 
+    private static final ThreadLocal<zombie.iso.Vector2> screenPoint =
+            ThreadLocal.withInitial(zombie.iso.Vector2::new);
+
+    private static boolean cursor(zombie.iso.Vector2 point) {
+        if (GamepadAim.bound(IsoPlayer.getInstance())) {
+            return Pointer.gamepadCursor(point);
+        }
+        point.set(Mouse.getXA(), Mouse.getYA());
+        return true;
+    }
+
     private ImprovedAim() {}
 
     public static void configure(int mode) {
@@ -60,13 +71,13 @@ public final class ImprovedAim {
                 && CameraController.topDownActive()
                 && !zombie.GameTime.isGamePaused()
                 && player != null
-                && player.isAiming()
+                && (player.isAiming() || (GamepadAim.bound(player) && player.isPrecisionAimKeyDown()))
                 && !player.isDead()
                 && firearm(player.getPrimaryHandItem())
                 && !player.isShoving()
                 && !player.isDoStomp()
                 && !SettingsWindow.shown()
-                && !Pointer.overUI();
+                && (GamepadAim.bound(player) ? !zombie.ui.UIManager.isModalVisible() : !Pointer.overUI());
     }
 
     private static boolean firearm(Object value) {
@@ -83,6 +94,7 @@ public final class ImprovedAim {
 
     public static void update() {
         var local = IsoPlayer.getInstance();
+        GamepadAim.resetIfIdle(local);
         if (local == null || !firearm(local.getPrimaryHandItem())) {
             hitUntil = 0;
             killUntil = 0;
@@ -101,7 +113,11 @@ public final class ImprovedAim {
             return;
         }
         long now = System.nanoTime();
-        int x = Mouse.getXA(), y = Mouse.getYA();
+        zombie.iso.Vector2 point = screenPoint.get();
+        if (!cursor(point)) {
+            return;
+        }
+        int x = Math.round(point.x), y = Math.round(point.y);
         if (now - pickedAt < 50_000_000L) {
             return;
         }
@@ -149,8 +165,13 @@ public final class ImprovedAim {
                                 && Float.isFinite(targets[0])
                         ? (int) targets[0]
                         : -1;
-        targetX = Mouse.getXA();
-        targetY = Mouse.getYA();
+        var point = screenPoint.get();
+        if (!cursor(point)) {
+            targetAt = 0;
+            return;
+        }
+        targetX = Math.round(point.x);
+        targetY = Math.round(point.y);
         targetController = controller;
         targetAt = System.nanoTime();
     }
@@ -240,7 +261,11 @@ public final class ImprovedAim {
             spreadAt = 0;
             return;
         }
-        int x = Mouse.getXA(), y = Mouse.getYA();
+        zombie.iso.Vector2 point = screenPoint.get();
+        if (!cursor(point)) {
+            return;
+        }
+        int x = Math.round(point.x), y = Math.round(point.y);
         boolean target =
                 red
                         && System.nanoTime() - pickedAt < 150_000_000L
