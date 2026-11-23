@@ -188,6 +188,11 @@ public final class Bridge {
         return topDownActive() && !itemMenuEnabled;
     }
 
+    public static void configureGamepadAim(double sensitivity, boolean assist) {
+        GamepadAim.gain = (float) Math.max(0.25, Math.min(2, sensitivity / 100));
+        GamepadAim.assist = assist;
+    }
+
     public static void setMemoryPolicy(double value) {
         ResourceBudget.configure((int) value);
     }

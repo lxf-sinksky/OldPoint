@@ -1,3 +1,6 @@
+UI_OldPoint_PadTab = "手柄控制",
+UI_OldPoint_PadGain = "瞄准灵敏度",
+UI_OldPoint_PadAssist = "辅助瞄准",
 UI_OldPoint_Name = "OldPoint",
 UI_OldPoint_RotationKey = "视角旋转快捷键",
 UI_OldPoint_RotationKeyHelp = "按住并移动鼠标旋转俯视角，默认鼠标中键。点击可绑定其他鼠标按键或键盘单键，清除后禁用旋转。固定原版视角时不生效。",

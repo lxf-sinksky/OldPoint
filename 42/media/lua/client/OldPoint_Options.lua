@@ -125,7 +125,11 @@ local itemMenu = options:addTickBox("viewpointItemMenu", getText("UI_OldPoint_It
 local debugMenu = options:addTickBox("showDebugMenu", getText("UI_OldPoint_ShowDebugMenu"), false,
     getText("UI_OldPoint_ShowDebugMenuHelp"))
 
+local padGain = options:addSlider("gamepadAimSensitivity", getText("UI_OldPoint_PadGain"), 25, 200, 5, 100)
+local padAssist = options:addTickBox("gamepadAimAssist", getText("UI_OldPoint_PadAssist"), true)
+
 local mirrorOptions = {
+    padGain, padAssist,
     debugMenu,
     itemMenu,
     enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
@@ -163,9 +167,11 @@ local function registerMirror()
         "OldPoint/" .. cameraName, "OldPoint/" .. visionName,
         "OldPoint/" .. aimingName, "OldPoint/" .. experimentalName,
         "OldPoint/" .. performanceName
-    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName}, "\t"))
+    local padName = getText("UI_OldPoint_PadTab")
+    local padSection = "OldPoint/" .. padName
+    OldPointBridge.settingsTabs(table.concat({cameraName, visionName, aimingName, experimentalName, performanceName, padName}, "\t"))
     for _, option in ipairs(mirrorOptions) do
-        local section = cameraOptions[option.id] and camera
+        local section = (option == padGain or option == padAssist) and padSection or cameraOptions[option.id] and camera
             or visionOptions[option.id] and vision
             or aimingOptions[option.id] and aiming
             or experimentalOptions[option.id] and experimental or performance
@@ -219,6 +225,9 @@ local function pullMirror()
 end
 
 local function applyOptions()
+    if OldPointBridge and OldPointBridge.configureGamepadAim then
+        OldPointBridge.configureGamepadAim(padGain:getValue(), padAssist:getValue() == true)
+    end
     OldPointDebugMenuEnabled = debugMenu:getValue() == true
     if OldPointBridge and OldPointBridge.setItemMenuEnabled then
         OldPointBridge.setItemMenuEnabled(itemMenu:getValue() == true)

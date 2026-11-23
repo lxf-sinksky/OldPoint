@@ -121,9 +121,9 @@ public final class Pointer {
         if (p == null) {
             return false;
         }
+        Ray ray = rays.get();
         double nx = 2.0 * Mouse.getXA() / Math.max(1, p.width) - 1;
         double ny = 1 - 2.0 * Mouse.getYA() / Math.max(1, p.height);
-        Ray ray = rays.get();
         Vector4d near = p.inverse.transform(ray.near.set(nx, ny, -1, 1));
         Vector4d far = p.inverse.transform(ray.far.set(nx, ny, 0, 1));
         near.div(near.w);
@@ -195,7 +195,16 @@ public final class Pointer {
         boolean firearm = player.getPrimaryHandItem() instanceof HandWeapon weapon && weapon.isRanged();
         Ray ray = rays.get();
         double mouseX = Mouse.getXA(), mouseY = Mouse.getYA();
-        boolean ring = !firearm && CursorScale.ring(ray.cursor);
+        boolean pad = GamepadAim.bound(player);
+        if (pad) {
+            if (!GamepadAim.cursor((zombie.characters.IsoPlayer) player, p.height, ray.cursor)) {
+                result.set(0, 0);
+                return true;
+            }
+            mouseX = ray.cursor.x;
+            mouseY = ray.cursor.y;
+        }
+        boolean ring = !pad && !firearm && CursorScale.ring(ray.cursor);
         if (ring) {
             mouseX = ray.cursor.x;
             mouseY = ray.cursor.y;
@@ -209,7 +218,7 @@ public final class Pointer {
         far.div(far.w);
         // Melee faces the visible ground ring, not a guessed plane below the
         // mouse hotspot. Keep the established firearm ray/body targeting path.
-        double plane = player.getZ() * 2.4494896 + p.terrainHeight + (!firearm && !ring ? 0.8 : 0) - p.oy;
+        double plane = player.getZ() * 2.4494896 + p.terrainHeight + (!pad && !firearm && !ring ? 0.8 : 0) - p.oy;
         double denominator = far.y - near.y;
         if (Math.abs(denominator) < 1e-12) {
             result.set(0, 0);
@@ -218,8 +227,8 @@ public final class Pointer {
         double t = (plane - near.y) / denominator;
         double worldX = -(near.x + t * (far.x - near.x) + p.ox);
         double worldY = -(near.z + t * (far.z - near.z) + p.oz);
-        float x = (float) (worldX - (ring ? player.getX() : player.getAimOriginPosX()));
-        float y = (float) (worldY - (ring ? player.getY() : player.getAimOriginPosY()));
+        float x = (float) (worldX - ((ring || pad) ? player.getX() : player.getAimOriginPosX()));
+        float y = (float) (worldY - ((ring || pad) ? player.getY() : player.getAimOriginPosY()));
         if (!Double.isFinite(t) || t < 0 || !Float.isFinite(x) || !Float.isFinite(y)) {
             result.set(0, 0);
         } else {
@@ -336,9 +345,14 @@ public final class Pointer {
         if (p == null) {
             return false;
         }
-        double nx = 2.0 * Mouse.getXA() / Math.max(1, p.width) - 1;
-        double ny = 1 - 2.0 * Mouse.getYA() / Math.max(1, p.height);
         Ray ray = rays.get();
+        var player = zombie.characters.IsoPlayer.getInstance();
+        boolean pad = GamepadAim.bound(player);
+        if (pad && !GamepadAim.cursor(player, p.height, ray.cursor)) {
+            return false;
+        }
+        double nx = 2.0 * (pad ? ray.cursor.x : Mouse.getXA()) / Math.max(1, p.width) - 1;
+        double ny = 1 - 2.0 * (pad ? ray.cursor.y : Mouse.getYA()) / Math.max(1, p.height);
         Vector4d near = p.inverse.transform(ray.near.set(nx, ny, -1, 1));
         Vector4d far = p.inverse.transform(ray.far.set(nx, ny, 0, 1));
         near.div(near.w);
