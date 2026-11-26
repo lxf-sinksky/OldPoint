@@ -12,7 +12,7 @@ local enterOverheadKey = options:addKeyBind(
 )
 local resetOverheadKey = options:addKeyBind(
     "resetOverheadOrientation", textOrFallback("UI_OldPoint_ResetOverhead", "Reset overhead orientation and angle"), 0,
-    textOrFallback("UI_OldPoint_ResetOverheadHelp", "While in overhead view, restore vanilla orientation and the 30-degree angle. Unbound by default.")
+    textOrFallback("UI_OldPoint_ResetOverheadHelp", "In overhead view, restore vanilla orientation using the configured camera elevation. Unbound by default.")
 )
 local rotationControl = options:addComboBox(
     "cameraControlMode", textOrFallback("UI_OldPoint_CameraControlMode", "Camera rotation control"),
@@ -42,6 +42,9 @@ local nativeFixedView = options:addTickBox(
     textOrFallback("UI_OldPoint_NativeFixedView", "Use vanilla fixed camera angle"),
     false
 )
+
+local verticalViewAdjustment = options:addSlider("verticalViewAdjustment", getText("UI_OldPoint_VerticalViewAdjustment"),
+    -30, 30, 1, 0, getText("UI_OldPoint_VerticalViewAdjustmentHelp"))
 
 local function cameraModeOption(id, labelKey, fallback, helpKey, helpFallback)
     local option = options:addComboBox(id, textOrFallback(labelKey, fallback),
@@ -125,6 +128,15 @@ local treeClearingRadius = options:addSlider(
 local itemMenu = options:addTickBox("viewpointItemMenu", getText("UI_OldPoint_ItemMenu"), false,
     getText("UI_OldPoint_ItemMenuHelp"))
 
+local tiltEnabled = options:addTickBox("tiltEnabled", getText("UI_OldPoint_TiltTilt"), false)
+local tiltFocus = options:addSlider("tiltFocus", getText("UI_OldPoint_TiltFocus"), 0, 100, 1, 50)
+local tiltBand = options:addSlider("tiltBand", getText("UI_OldPoint_TiltBand"), 0, 100, 1, 50)
+local tiltBlurRadius = 75
+local tiltCurve = options:addComboBox("tiltCurve", getText("UI_OldPoint_TiltCurve"))
+local tiltFollow = options:addTickBox("tiltFollow", getText("UI_OldPoint_TiltFollow"), false)
+tiltCurve:addItem(getText("UI_OldPoint_TiltSmooth"), true)
+tiltCurve:addItem(getText("UI_OldPoint_TiltLinear"))
+
 local debugMenu = options:addTickBox("showDebugMenu", getText("UI_OldPoint_ShowDebugMenu"), false,
     getText("UI_OldPoint_ShowDebugMenuHelp"))
 
@@ -136,10 +148,11 @@ local padHead = options:addTickBox("gamepadAssistHead", getText("UI_OldPoint_Pad
 local padLock = options:addTickBox("gamepadTargetLock", getText("UI_OldPoint_PadLock"), false)
 
 local mirrorOptions = {
+    tiltEnabled, tiltFocus, tiltBand, tiltCurve, tiltFollow,
     debugMenu,
     itemMenu,
     enterOverheadKey, resetOverheadKey, rotationControl, rotationKey, stepAngle,
-    stepLeft, stepRight, viewCycle, nativeFixedView, enteringBuilding, leavingBuilding,
+    stepLeft, stepRight, viewCycle, nativeFixedView, verticalViewAdjustment, enteringBuilding, leavingBuilding,
     enteringDriver, leavingDriver, aimingCamera, releasedCamera, playerOutline,
     aimingSystem, visionRange, visionIndicator, visionShade, visionShadeStrength, minimumDistance, maximumDistance,
     steppedZoom, zoomStepSize, padGain, padAssist, padHead, padLock, lockGain,
@@ -150,7 +163,7 @@ local minimumMigrationDone = false
 local cameraOptions = {
     enterOverheadRemembered=true, resetOverheadOrientation=true, cameraControlMode=true,
     cameraRotationKey=true, stepRotationAngle=true, stepRotationLeft=true,
-    stepRotationRight=true, threeViewCycle=true, nativeFixedView=true,
+    stepRotationRight=true, threeViewCycle=true, nativeFixedView=true, verticalViewAdjustment=true,
     minimumDistance=true, maximumDistance=true, steppedZoom=true, zoomStepSize=true
 }
 local visionOptions = {
@@ -158,7 +171,7 @@ local visionOptions = {
     visionRangeIndicator=true, visionOutsideStyle=true, visionOutsideStrength=true, treeClearing=true, treeClearingRadiusExpanded=true
 }
 local aimingOptions = { aimingSystem=true }
-local experimentalOptions = { viewpointItemMenu=true, showDebugMenu=true,
+local experimentalOptions = { tiltEnabled=true, tiltFocus=true, tiltBand=true, tiltCurve=true, tiltFollow=true, viewpointItemMenu=true, showDebugMenu=true,
     enteringBuildingMode=true, leavingBuildingMode=true, enteringDriverMode=true,
     leavingDriverMode=true, aimingCameraMode=true, releasedCameraMode=true
 }
@@ -187,8 +200,10 @@ local function registerMirror()
             if option.type == "tickbox" then
                 OldPointBridge.settingsToggle(option.id, option.name, section, help, option:getValue() == true)
             elseif option.type == "slider" then
+                -- Register the neutral reset point; applyOptions then syncs the player's saved angle.
+                local initial = option == verticalViewAdjustment and 0 or (tonumber(option:getValue()) or option.value)
                 OldPointBridge.settingsNumber(option.id, option.name, section, help,
-                    option.min, option.max, option.step, tonumber(option:getValue()) or option.value)
+                    option.min, option.max, option.step, initial)
             elseif option.type == "combobox" then
                 local values = {}
                 for i = 1, #option.values do values[i] = tostring(i - 1) end
@@ -202,7 +217,11 @@ local function registerMirror()
         if not ok then print("[OldPoint] Viewpoint setting " .. option.id .. ": " .. tostring(error)) end
     end
     if OldPointBridge.settingsShownWhen then
+        for _, option in ipairs({tiltFocus, tiltBand, tiltCurve, tiltFollow}) do
+            OldPointBridge.settingsShownWhen(option.id, "tiltEnabled", 1)
+        end
         OldPointBridge.settingsShownWhen("zoomStepSize", "steppedZoom", 1)
+        OldPointBridge.settingsShownWhen("verticalViewAdjustment", "nativeFixedView", 0)
         OldPointBridge.settingsShownWhen("cameraRotationKey", "cameraControlMode", 0)
         for _, id in ipairs({"stepRotationAngle", "stepRotationLeft", "stepRotationRight"}) do
             OldPointBridge.settingsShownWhen(id, "cameraControlMode", 1)
@@ -233,6 +252,13 @@ local function pullMirror()
 end
 
 local function applyOptions()
+    if OldPointBridge and OldPointBridge.setVerticalViewAdjustment then
+        OldPointBridge.setVerticalViewAdjustment(verticalViewAdjustment:getValue())
+    end
+    if OldPointBridge and OldPointBridge.configureTiltShift then
+        OldPointBridge.configureTiltShift(tiltEnabled:getValue(), tiltFocus:getValue(), tiltBand:getValue(),
+            tiltBlurRadius, tiltBlurRadius, tiltCurve:getValue() - 1, tiltFollow:getValue())
+    end
     if OldPointBridge and OldPointBridge.setLockSensitivity then
         OldPointBridge.setLockSensitivity(lockGain:getValue())
     end

@@ -52,9 +52,9 @@ final class CameraCapture {
         frame.eyeY = 0.8f + (player.getZ() - frame.camZ) * 2.4494896f + terrainHeight;
         frame.eyeLean = 0;
         float distance = Layout.distance(Core.getInstance().getScreenHeight(), Core.getTileScale(), Zoom.factor());
-        float dx = (float) (-Math.cos(orbitYaw) * Math.cos(CameraController.overheadPitch()));
-        float dy = (float) Math.sin(CameraController.overheadPitch());
-        float dz = (float) (-Math.sin(orbitYaw) * Math.cos(CameraController.overheadPitch()));
+        float dx = (float) (-Math.cos(orbitYaw) * Math.cos(frame.viewPitch));
+        float dy = (float) Math.sin(frame.viewPitch);
+        float dz = (float) (-Math.sin(orbitYaw) * Math.cos(frame.viewPitch));
         if (player instanceof zombie.characters.IsoPlayer local) {
             AimCamera.pan(frame, local, distance, dx, dy, dz);
         }

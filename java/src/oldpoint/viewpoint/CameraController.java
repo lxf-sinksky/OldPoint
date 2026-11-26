@@ -26,6 +26,7 @@ final class CameraController {
     private static boolean savedCursor;
     private static volatile float orbitYaw = Layout.YAW;
     private static volatile boolean nativeFixedView;
+    private static volatile float freeOrbitPitch = Layout.PITCH;
     private static float freeOrbitYaw = Layout.YAW;
     private static volatile float rememberedOrbitYaw = Layout.YAW;
     private static volatile boolean directEntryRequested;
@@ -288,7 +289,12 @@ final class CameraController {
     }
 
     static float overheadPitch() {
-        return nativeFixedView ? Layout.NATIVE_PITCH : Layout.PITCH;
+        return nativeFixedView ? Layout.NATIVE_PITCH : freeOrbitPitch;
+    }
+
+    static void setVerticalViewAdjustment(int degrees) {
+        // Raising the orbit makes its forward direction point further down.
+        freeOrbitPitch = Layout.PITCH - (float) Math.toRadians(Math.max(-30, Math.min(30, degrees)));
     }
 
     static void setNativeFixedView(boolean value) {
@@ -391,7 +397,7 @@ final class CameraController {
         orbitYaw = restore && !nativeFixedView ? rememberedOrbitYaw : Layout.YAW;
         rotating = false;
         Look.yaw = orbitYaw;
-        Look.pitch = Layout.NATIVE_PITCH;
+        Look.pitch = overheadPitch();
         Interior.clear();
         syncCursor();
         System.out.println(
@@ -400,7 +406,7 @@ final class CameraController {
                         + ", yaw="
                         + orbitYaw
                         + ", pitch="
-                        + Layout.NATIVE_PITCH);
+                        + Look.pitch);
     }
 
     static void enterOverheadRemembered() {

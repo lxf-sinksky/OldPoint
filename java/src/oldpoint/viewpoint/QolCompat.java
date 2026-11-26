@@ -30,14 +30,6 @@ public final class QolCompat {
         }
     }
 
-    @Patch(className = "viewpointqol.ViewpointQOLZoom", methodName = "setFactor", strictMatch = false)
-    public static final class Factor {
-        @Patch.OnEnter(skipOn = true)
-        public static boolean enter() {
-            return Bridge.topDownActive();
-        }
-    }
-
     @Patch(className = "viewpointqol.ViewpointQOLBridge", methodName = "zoom", strictMatch = false)
     public static final class Fov {
         @Patch.OnEnter(skipOn = true)

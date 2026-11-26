@@ -13,10 +13,27 @@ import zombie.iso.Vector2;
 @Exposer.LuaClass(name = "OldPointBridge")
 public final class Bridge {
     static {
-        System.out.println("[OldPoint] loaded build 0.6.160: Viewpoint 0.1.7, game 42.22");
+        System.out.println("[OldPoint] loaded build 0.6.161: Viewpoint 0.1.7, game 42.22");
     }
 
     private Bridge() {}
+
+    public static void configureTiltShift(boolean enabled, int center, int band, int upper, int lower,
+                                          int curve, boolean follow) {
+        TiltShift.configure(enabled, center, band, upper, lower, curve, follow);
+    }
+
+    public static void drawTiltShift(Object frame) {
+        TiltShift.draw((viewpoint.render.FrameContext) frame);
+    }
+
+    @Patch(className = "viewpoint.render.TargetOutline", methodName = "composite", strictMatch = true)
+    public static final class TiltPass {
+        @Patch.OnEnter
+        public static void enter(@Patch.Argument(0) Object frame) {
+            Bridge.drawTiltShift(frame);
+        }
+    }
 
     public static void setEnabled(boolean value) {
         CameraController.setEnabled(value);
@@ -243,6 +260,10 @@ public final class Bridge {
         CameraController.setNativeFixedView(value);
     }
 
+    public static void setVerticalViewAdjustment(int degrees) {
+        CameraController.setVerticalViewAdjustment(degrees);
+    }
+
     public static boolean keepAimCursor() {
         return CameraController.keepAimCursor();
     }
@@ -467,26 +488,6 @@ public final class Bridge {
         }
     }
 
-    @Patch(className = "viewpoint.interact.LootMenu", methodName = "freeCursor", strictMatch = false)
-    public static final class InteractionCursorPatch {
-        @Patch.OnExit
-        public static void exit(@Patch.Return(readOnly = false) boolean result) {
-            if (Bridge.hideItemMenu()) {
-                result = false;
-            }
-        }
-    }
-
-    @Patch(className = "viewpoint.interact.LootMenu", methodName = "lookAgain", strictMatch = false)
-    public static final class InteractionLookPatch {
-        @Patch.OnExit
-        public static void exit(@Patch.Return(readOnly = false) boolean result) {
-            if (Bridge.hideItemMenu()) {
-                result = false;
-            }
-        }
-    }
-
     // Advice is inlined into the target class. Keep callbacks limited to public helpers.
     // ZombieBuddy strictMatch compares the number of mapped @Argument parameters to
     // the target arity. Return-only and sparse-argument callbacks must use false.
@@ -534,7 +535,7 @@ public final class Bridge {
         }
     }
 
-    @Patch(className = "viewpoint.SceneDrawer", methodName = "drawCrosshair", strictMatch = true)
+    @Patch(className = "viewpoint.OverWorldDrawer", methodName = "draw", strictMatch = true)
     public static final class OverheadCrosshairPatch {
         @Patch.OnEnter(skipOn = true)
         public static boolean enter() {
